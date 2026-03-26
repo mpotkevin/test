@@ -1,521 +1,338 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Settings, 
-  Printer, 
-  RefreshCw, 
-  User, 
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  ArrowLeft,
-  Play,
-  Type,
-  Layout
-} from 'lucide-react';
-
-const App = () => {
-  // --- 狀態設定 ---
-  const [view, setView] = useState('setup'); // 'setup' 或 'preview'
-  const [config, setConfig] = useState({
-    digitType: 'double', 
-    customMin: 10,
-    customMax: 99,
-    operation: 'addition', 
-    allowCarry: true,
-    numTerms: 2,
-    totalProblems: 20,
-    columns: 2,
-    fontSizeType: 'preset', // 'preset' or 'custom'
-    fontSizePreset: 'xl',
-    customFontSize: 24,
-    numCopies: 1,
-  });
-
-  const [worksheets, setWorksheets] = useState([]);
-
-  // --- 輔助函式 ---
-  const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-  const getRange = (type) => {
-    switch (type) {
-      case 'single': return { min: 1, max: 9 };
-      case 'double': return { min: 10, max: 99 };
-      case 'triple': return { min: 100, max: 999 };
-      case 'mixed12': return { min: 1, max: 99 };
-      case 'mixed23': return { min: 10, max: 999 };
-      case 'custom': return { min: config.customMin, max: config.customMax };
-      default: return { min: 1, max: 99 };
-    }
-  };
-
-  const getFontSizeStyle = () => {
-    if (config.fontSizeType === 'custom') return { fontSize: `${config.customFontSize}pt` };
-    const mapping = {
-      'sm': '12pt',
-      'base': '14pt',
-      'lg': '18pt',
-      'xl': '24pt',
-      '2xl': '32pt'
-    };
-    return { fontSize: mapping[config.fontSizePreset] || '18pt' };
-  };
-
-  // --- 邏輯檢查 (進位/借位) ---
-  const checkConstraint = (nums, op, allowCarry) => {
-    if (allowCarry) return true;
-
-    if (op === 'addition') {
-      let currentSum = nums[0];
-      for (let i = 1; i < nums.length; i++) {
-        let a = currentSum;
-        let b = nums[i];
-        while (a > 0 || b > 0) {
-          if ((a % 10) + (b % 10) >= 10) return false;
-          a = Math.floor(a / 10);
-          b = Math.floor(b / 10);
-        }
-        currentSum += nums[i];
-      }
-    } else {
-      let currentVal = nums[0];
-      for (let i = 1; i < nums.length; i++) {
-        let a = currentVal;
-        let b = nums[i];
-        if (a < b) return false; 
-        while (a > 0 || b > 0) {
-          if ((a % 10) < (b % 10)) return false;
-          a = Math.floor(a / 10);
-          b = Math.floor(b / 10);
-        }
-        currentVal -= nums[i];
-      }
-    }
-    return true;
-  };
-
-  const generateProblem = () => {
-    const range = getRange(config.digitType);
-    let attempts = 0;
-    while (attempts < 300) {
-      const nums = [];
-      for (let i = 0; i < config.numTerms; i++) {
-        nums.push(getRandomInt(range.min, range.max));
-      }
-      const op = config.operation === 'mixed' 
-        ? (Math.random() > 0.5 ? 'addition' : 'subtraction') 
-        : config.operation;
-
-      if (checkConstraint(nums, op, config.allowCarry)) {
-        const result = op === 'addition' 
-          ? nums.reduce((a, b) => a + b, 0)
-          : nums.reduce((a, b) => a - b);
-        if (result >= 0) return { nums, op, result };
-      }
-      attempts++;
-    }
-    return { nums: [10, 5], op: 'addition', result: 15 };
-  };
-
-  const handleGenerate = () => {
-    const newWorksheets = [];
-    for (let c = 0; c < config.numCopies; c++) {
-      const problems = [];
-      for (let p = 0; p < config.totalProblems; p++) {
-        problems.push(generateProblem());
-      }
-      newWorksheets.push({ id: c, problems });
-    }
-    setWorksheets(newWorksheets);
-    setView('preview');
-    window.scrollTo(0, 0);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // --- 畫面組件 ---
-
-  const SetupView = () => (
-    <div className="min-h-screen bg-slate-100 py-12 px-4">
-      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-white">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white text-center md:text-left">
-          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-            <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
-              <Settings size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">數學練習題產生器</h1>
-              <p className="text-blue-100 font-medium">客製化您的 A4 數學練習卷與解答</p>
-            </div>
-          </div>
-        </div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數學橫式練習題產生器</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel for Browser JSX -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; overflow-x: hidden; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        {/* Form Container */}
-        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-          {/* Section 1: 基礎設定 */}
-          <div className="space-y-6">
-            <div className="border-l-4 border-blue-500 pl-4 mb-4">
-              <h2 className="text-lg font-bold text-slate-800">1. 數值與規則</h2>
-            </div>
-            
-            <section>
-              <label className="block text-sm font-bold text-slate-500 mb-2">數字位數</label>
-              <select 
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all outline-none text-slate-700"
-                value={config.digitType}
-                onChange={(e) => setConfig({...config, digitType: e.target.value})}
-              >
-                <option value="single">個位數 (1-9)</option>
-                <option value="double">雙位數 (10-99)</option>
-                <option value="triple">三位數 (100-999)</option>
-                <option value="mixed12">混合 (個位+雙位)</option>
-                <option value="mixed23">混合 (雙位+三位)</option>
-                <option value="custom">自訂區間</option>
-              </select>
-              {config.digitType === 'custom' && (
-                <div className="flex gap-2 mt-3 animate-in fade-in duration-300">
-                  <input 
-                    type="number" placeholder="Min" className="w-1/2 p-3 border rounded-xl"
-                    value={config.customMin} onChange={(e) => setConfig({...config, customMin: parseInt(e.target.value)})}
-                  />
-                  <input 
-                    type="number" placeholder="Max" className="w-1/2 p-3 border rounded-xl"
-                    value={config.customMax} onChange={(e) => setConfig({...config, customMax: parseInt(e.target.value)})}
-                  />
-                </div>
-              )}
-            </section>
-
-            <section>
-              <label className="block text-sm font-bold text-slate-500 mb-2">運算符號</label>
-              <div className="flex gap-2">
-                {['addition', 'subtraction', 'mixed'].map(op => (
-                  <button
-                    key={op}
-                    onClick={() => setConfig({...config, operation: op})}
-                    className={`flex-1 p-3 rounded-xl border-2 text-sm font-bold transition-all ${config.operation === op ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
-                  >
-                    {op === 'addition' ? '加法' : op === 'subtraction' ? '減法' : '混合'}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section>
-              <label className="block text-sm font-bold text-slate-500 mb-2">進位 / 借位</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setConfig({...config, allowCarry: true})}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${config.allowCarry ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}
-                >
-                  <CheckCircle2 size={18} /> 允許
-                </button>
-                <button 
-                  onClick={() => setConfig({...config, allowCarry: false})}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${!config.allowCarry ? 'bg-orange-50 border-orange-500 text-orange-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}
-                >
-                  <XCircle size={18} /> 禁止
-                </button>
-              </div>
-            </section>
-          </div>
-
-          {/* Section 2: 版面設定 */}
-          <div className="space-y-6">
-            <div className="border-l-4 border-indigo-500 pl-4 mb-4">
-              <h2 className="text-lg font-bold text-slate-800">2. 佈局與外觀</h2>
-            </div>
-
-            <section>
-              <label className="block text-sm font-bold text-slate-500 mb-2 flex justify-between">
-                數字連算數量 <span>{config.numTerms} 個數</span>
-              </label>
-              <input 
-                type="range" min="2" max="5" step="1"
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                value={config.numTerms}
-                onChange={(e) => setConfig({...config, numTerms: parseInt(e.target.value)})}
-              />
-            </section>
-
-            <div className="grid grid-cols-2 gap-4">
-              <section>
-                <label className="block text-sm font-bold text-slate-500 mb-2">總題目數</label>
-                <input 
-                  type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  value={config.totalProblems}
-                  onChange={(e) => setConfig({...config, totalProblems: parseInt(e.target.value)})}
-                />
-              </section>
-              <section>
-                <label className="block text-sm font-bold text-slate-500 mb-2">每列欄數</label>
-                <input 
-                  type="number" min="1" max="3" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  value={config.columns}
-                  onChange={(e) => setConfig({...config, columns: parseInt(e.target.value)})}
-                />
-              </section>
-            </div>
-
-            <section>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-bold text-slate-500">字體大小設定</label>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                  <button 
-                    onClick={() => setConfig({...config, fontSizeType: 'preset'})}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'preset' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
-                  >
-                    預設
-                  </button>
-                  <button 
-                    onClick={() => setConfig({...config, fontSizeType: 'custom'})}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'custom' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
-                  >
-                    自訂
-                  </button>
-                </div>
-              </div>
-              {config.fontSizeType === 'preset' ? (
-                <select 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  value={config.fontSizePreset}
-                  onChange={(e) => setConfig({...config, fontSizePreset: e.target.value})}
-                >
-                  <option value="sm">小 (12pt)</option>
-                  <option value="base">中 (14pt)</option>
-                  <option value="lg">大 (18pt)</option>
-                  <option value="xl">特大 (24pt)</option>
-                  <option value="2xl">巨大 (32pt)</option>
-                </select>
-              ) : (
-                <div className="flex items-center gap-3 animate-in fade-in duration-300">
-                  <input 
-                    type="number" className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                    value={config.customFontSize}
-                    onChange={(e) => setConfig({...config, customFontSize: parseInt(e.target.value) || 12})}
-                  />
-                  <span className="text-slate-400 font-bold">pt</span>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <label className="block text-sm font-bold text-slate-500 mb-2">列印份數 (不同題目)</label>
-              <input 
-                type="number" min="1" max="20" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                value={config.numCopies}
-                onChange={(e) => setConfig({...config, numCopies: parseInt(e.target.value)})}
-              />
-            </section>
-          </div>
-        </div>
-
-        {/* Footer Action */}
-        <div className="bg-slate-50 p-8 flex flex-col items-center border-t border-slate-100">
-          <button 
-            onClick={handleGenerate}
-            className="w-full md:w-80 group relative flex items-center justify-center gap-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 px-10 rounded-2xl shadow-2xl shadow-indigo-200 transition-all transform hover:-translate-y-1 active:scale-95"
-          >
-            <Play size={24} fill="currentColor" className="group-hover:scale-110 transition-transform" />
-            <span className="text-lg">生成題目預覽</span>
-          </button>
-          <div className="flex items-center gap-2 mt-4 text-slate-400 text-sm">
-            <Layout size={14} />
-            <span>題目將以橫式排列，並自動生成解答頁</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const PreviewView = () => (
-    <div className="min-h-screen bg-slate-800 flex flex-col items-center py-10 no-scrollbar">
-      {/* Floating Header Toolbar */}
-      <div className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md h-16 shadow-lg z-50 px-6 flex items-center justify-between no-print border-b border-slate-200">
-        <button 
-          onClick={() => setView('setup')}
-          className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-bold transition-all px-4 py-2 rounded-lg hover:bg-slate-100"
-        >
-          <ArrowLeft size={20} /> 返回修改參數
-        </button>
-        
-        <div className="flex items-center gap-4">
-          <span className="hidden md:block text-slate-400 text-sm font-medium">
-            預覽中：共 {worksheets.length * 2} 頁 (題目+解答)
-          </span>
-          <button 
-            onClick={handleGenerate}
-            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
-            title="重新生成隨機題目"
-          >
-            <RefreshCw size={22} />
-          </button>
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-black shadow-xl shadow-indigo-200 transition-all active:scale-95"
-          >
-            <Printer size={20} /> 列印 PDF
-          </button>
-        </div>
-      </div>
-
-      {/* A4 Paper Sheets */}
-      <div className="mt-12 space-y-0 flex flex-col items-center">
-        {worksheets.map((sheet, sIdx) => (
-          <React.Fragment key={sheet.id}>
-            {/* Question Sheet */}
-            <div className="a4-sheet bg-white relative shadow-2xl overflow-hidden print:shadow-none">
-              {/* Header Info */}
-              <div className="header-area flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-10">
-                <div>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tighter">數學橫式運算練習卷</h2>
-                  <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-500">
-                    <span className="bg-slate-100 px-2 py-0.5 rounded">一份 {config.totalProblems} 題</span>
-                    <span>|</span>
-                    <span>卷號：#{String(sIdx + 1).padStart(3, '0')}</span>
-                    <span>|</span>
-                    <span>{config.allowCarry ? '允許進/借位' : '無進/借位'}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 border-b-2 border-slate-200 w-48 pb-1">
-                    <span className="text-sm font-bold text-slate-800">姓名:</span>
-                    <div className="flex-1"></div>
-                  </div>
-                  <div className="flex items-center gap-2 border-b-2 border-slate-200 w-48 pb-1">
-                    <span className="text-sm font-bold text-slate-800">日期:</span>
-                    <div className="flex-1"></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Problems Grid */}
-              <div 
-                className="grid gap-x-12 gap-y-12"
-                style={{ 
-                  gridTemplateColumns: `repeat(${config.columns}, 1fr)`,
-                  ...getFontSizeStyle()
-                }}
-              >
-                {sheet.problems.map((prob, pIdx) => (
-                  <div key={pIdx} className="flex items-baseline group font-mono">
-                    <span className="text-slate-300 text-xs w-6 mr-1 italic font-sans shrink-0">
-                      {pIdx + 1}.
-                    </span>
-                    <div className="flex-1 flex items-center gap-2 whitespace-nowrap overflow-hidden">
-                      {prob.nums.map((n, i) => (
-                        <React.Fragment key={i}>
-                          <span className="text-slate-900 font-bold">{n}</span>
-                          {i < prob.nums.length - 1 && (
-                            <span className="text-indigo-600 font-black">
-                              {prob.op === 'addition' ? '+' : '-'}
-                            </span>
-                          )}
-                        </React.Fragment>
-                      ))}
-                      <span className="text-slate-900 font-bold">=</span>
-                      <div className="flex-1 min-w-[2.5rem] border-b-2 border-slate-300 h-[1em] mb-1"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono tracking-widest">
-                - 第 1 頁，共 2 頁 (題目卷) -
-              </div>
-            </div>
-
-            {/* Answer Sheet */}
-            <div className="a4-sheet bg-white relative shadow-2xl overflow-hidden page-break-before print:shadow-none">
-              <div className="header-area flex justify-between items-center border-b-2 border-slate-100 pb-3 mb-8">
-                <h2 className="text-lg font-black text-slate-400">標準解答卷 (卷號：#{String(sIdx + 1).padStart(3, '0')})</h2>
-                <div className="px-4 py-1 bg-slate-50 rounded-full text-[10pt] font-bold text-slate-400 border border-slate-100">
-                  ANSWER KEY
-                </div>
-              </div>
-
-              <div 
-                className="grid gap-4"
-                style={{ gridTemplateColumns: `repeat(${Math.max(4, config.columns + 2)}, 1fr)` }}
-              >
-                {sheet.problems.map((prob, pIdx) => (
-                  <div key={pIdx} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                    <span className="text-slate-400 font-mono text-[9pt] font-black">{pIdx + 1}</span>
-                    <span className="font-mono font-black text-indigo-600 text-lg">{prob.result}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono tracking-widest">
-                - 第 2 頁，共 2 頁 (解答卷) -
-              </div>
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-slate-100 font-sans selection:bg-indigo-100 no-scrollbar">
-      {view === 'setup' ? <SetupView /> : <PreviewView />}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap');
-        
-        body {
-          font-family: 'Noto Sans TC', sans-serif;
-          overflow-x: hidden;
-        }
-        
-        .font-mono {
-          font-family: 'JetBrains Mono', monospace;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-
         @media screen {
-          .a4-sheet {
-            width: 210mm;
-            height: 297mm;
-            padding: 2cm 1.5cm;
-            margin-bottom: 3rem;
-            border-radius: 4px;
-          }
+            .a4-sheet {
+                width: 210mm;
+                height: 297mm;
+                padding: 2cm 1.5cm;
+                margin: 2rem auto;
+                background: white;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+                border-radius: 4px;
+            }
         }
         
         @media print {
-          body {
-            background: white !important;
-            padding: 0 !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .a4-sheet {
-            width: 210mm;
-            height: 297mm;
-            padding: 2cm 1.5cm !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            page-break-after: always;
-            overflow: hidden;
-          }
-          .page-break-before {
-            page-break-before: always;
-          }
-          @page {
-            size: A4;
-            margin: 0;
-          }
+            body { background: white !important; padding: 0 !important; margin: 0 !important; }
+            .no-print { display: none !important; }
+            .a4-sheet {
+                width: 210mm;
+                height: 297mm;
+                padding: 2cm 1.5cm !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                page-break-after: always;
+                overflow: hidden;
+                display: block !important;
+            }
+            @page { size: A4; margin: 0; }
         }
-      `}</style>
-    </div>
-  );
-};
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div id="root"></div>
 
-export default App;
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 簡易圖標組件 (取代 Lucide) ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>,
+                printer: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>,
+                play: <path d="m7 3 14 9-14 9V3z"/>,
+                back: <path d="m12 19-7-7 7-7M5 12h14"/>,
+                refresh: <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24M21 3v6h-6"/>,
+                check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/>,
+                x: <path d="m15 9-6 6M9 9l6 6M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+            };
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('setup');
+            const [config, setConfig] = useState({
+                digitType: 'double', 
+                customMin: 10,
+                customMax: 99,
+                operation: 'addition', 
+                allowCarry: true,
+                numTerms: 2,
+                totalProblems: 20,
+                columns: 2,
+                fontSizeType: 'preset',
+                fontSizePreset: 'xl',
+                customFontSize: 24,
+                numCopies: 1,
+            });
+
+            const [worksheets, setWorksheets] = useState([]);
+
+            const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+            const getRange = (type) => {
+                switch (type) {
+                    case 'single': return { min: 1, max: 9 };
+                    case 'double': return { min: 10, max: 99 };
+                    case 'triple': return { min: 100, max: 999 };
+                    case 'mixed12': return { min: 1, max: 99 };
+                    case 'mixed23': return { min: 10, max: 999 };
+                    case 'custom': return { min: config.customMin, max: config.customMax };
+                    default: return { min: 1, max: 99 };
+                }
+            };
+
+            const getFontSizeStyle = () => {
+                if (config.fontSizeType === 'custom') return { fontSize: `${config.customFontSize}pt` };
+                const mapping = { 'sm': '12pt', 'base': '14pt', 'lg': '18pt', 'xl': '24pt', '2xl': '32pt' };
+                return { fontSize: mapping[config.fontSizePreset] || '18pt' };
+            };
+
+            const checkConstraint = (nums, op, allowCarry) => {
+                if (allowCarry) return true;
+                if (op === 'addition') {
+                    let sum = nums[0];
+                    for (let i = 1; i < nums.length; i++) {
+                        let a = sum, b = nums[i];
+                        while (a > 0 || b > 0) {
+                            if ((a % 10) + (b % 10) >= 10) return false;
+                            a = Math.floor(a / 10); b = Math.floor(b / 10);
+                        }
+                        sum += nums[i];
+                    }
+                } else {
+                    let val = nums[0];
+                    for (let i = 1; i < nums.length; i++) {
+                        let a = val, b = nums[i];
+                        if (a < b) return false;
+                        while (a > 0 || b > 0) {
+                            if ((a % 10) < (b % 10)) return false;
+                            a = Math.floor(a / 10); b = Math.floor(b / 10);
+                        }
+                        val -= nums[i];
+                    }
+                }
+                return true;
+            };
+
+            const generateProblem = () => {
+                const range = getRange(config.digitType);
+                let attempts = 0;
+                while (attempts < 300) {
+                    const nums = Array.from({ length: config.numTerms }, () => getRandomInt(range.min, range.max));
+                    const op = config.operation === 'mixed' ? (Math.random() > 0.5 ? 'addition' : 'subtraction') : config.operation;
+                    if (checkConstraint(nums, op, config.allowCarry)) {
+                        const result = op === 'addition' ? nums.reduce((a, b) => a + b, 0) : nums.reduce((a, b) => a - b);
+                        if (result >= 0) return { nums, op, result };
+                    }
+                    attempts++;
+                }
+                return { nums: [10, 5], op: 'addition', result: 15 };
+            };
+
+            const handleGenerate = () => {
+                const sheets = Array.from({ length: config.numCopies }, (_, i) => ({
+                    id: i,
+                    problems: Array.from({ length: config.totalProblems }, generateProblem)
+                }));
+                setWorksheets(sheets);
+                setView('preview');
+                window.scrollTo(0, 0);
+            };
+
+            const SetupView = () => (
+                <div className="min-h-screen py-12 px-4">
+                    <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-white">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white text-center md:text-left">
+                            <div className="flex flex-col md:flex-row items-center gap-4">
+                                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md"><Icon name="settings" size={32} /></div>
+                                <div>
+                                    <h1 className="text-3xl font-black tracking-tight">數學練習題產生器</h1>
+                                    <p className="text-blue-100 font-medium">GitHub 託管版本 - 即開即印</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                            <div className="space-y-6">
+                                <h2 className="text-lg font-bold text-slate-800 border-l-4 border-blue-500 pl-4">1. 數值與規則</h2>
+                                <section>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">數字位數</label>
+                                    <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" value={config.digitType} onChange={e => setConfig({...config, digitType: e.target.value})}>
+                                        <option value="single">個位數 (1-9)</option>
+                                        <option value="double">雙位數 (10-99)</option>
+                                        <option value="triple">三位數 (100-999)</option>
+                                        <option value="mixed12">混合 (個位+雙位)</option>
+                                        <option value="mixed23">混合 (雙位+三位)</option>
+                                        <option value="custom">自訂區間</option>
+                                    </select>
+                                    {config.digitType === 'custom' && (
+                                        <div className="flex gap-2 mt-3">
+                                            <input type="number" className="w-1/2 p-3 border rounded-xl" value={config.customMin} onChange={e => setConfig({...config, customMin: parseInt(e.target.value)})}/>
+                                            <input type="number" className="w-1/2 p-3 border rounded-xl" value={config.customMax} onChange={e => setConfig({...config, customMax: parseInt(e.target.value)})}/>
+                                        </div>
+                                    )}
+                                </section>
+                                <section>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">運算符號</label>
+                                    <div className="flex gap-2">
+                                        {['addition', 'subtraction', 'mixed'].map(op => (
+                                            <button key={op} onClick={() => setConfig({...config, operation: op})} className={`flex-1 p-3 rounded-xl border-2 text-sm font-bold transition-all ${config.operation === op ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}>
+                                                {op === 'addition' ? '加法' : op === 'subtraction' ? '減法' : '混合'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+                                <section>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">進位 / 借位</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button onClick={() => setConfig({...config, allowCarry: true})} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${config.allowCarry ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="check" size={18}/> 允許</button>
+                                        <button onClick={() => setConfig({...config, allowCarry: false})} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${!config.allowCarry ? 'bg-orange-50 border-orange-500 text-orange-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="x" size={18}/> 禁止</button>
+                                    </div>
+                                </section>
+                            </div>
+                            <div className="space-y-6">
+                                <h2 className="text-lg font-bold text-slate-800 border-l-4 border-indigo-500 pl-4">2. 佈局與外觀</h2>
+                                <section>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2 flex justify-between">數字連算數量 <span>{config.numTerms} 個數</span></label>
+                                    <input type="range" min="2" max="5" className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" value={config.numTerms} onChange={e => setConfig({...config, numTerms: parseInt(e.target.value)})}/>
+                                </section>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <section>
+                                        <label className="block text-sm font-bold text-slate-500 mb-2">總題目數</label>
+                                        <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.totalProblems} onChange={e => setConfig({...config, totalProblems: parseInt(e.target.value)})}/>
+                                    </section>
+                                    <section>
+                                        <label className="block text-sm font-bold text-slate-500 mb-2">每列欄數</label>
+                                        <input type="number" min="1" max="3" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.columns} onChange={e => setConfig({...config, columns: parseInt(e.target.value)})}/>
+                                    </section>
+                                </div>
+                                <section>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-sm font-bold text-slate-500">字體大小設定</label>
+                                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                                            <button onClick={() => setConfig({...config, fontSizeType: 'preset'})} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'preset' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>預設</button>
+                                            <button onClick={() => setConfig({...config, fontSizeType: 'custom'})} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'custom' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>自訂</button>
+                                        </div>
+                                    </div>
+                                    {config.fontSizeType === 'preset' ? (
+                                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.fontSizePreset} onChange={e => setConfig({...config, fontSizePreset: e.target.value})}>
+                                            <option value="sm">小 (12pt)</option>
+                                            <option value="base">中 (14pt)</option>
+                                            <option value="lg">大 (18pt)</option>
+                                            <option value="xl">特大 (24pt)</option>
+                                            <option value="2xl">巨大 (32pt)</option>
+                                        </select>
+                                    ) : (
+                                        <div className="flex items-center gap-3"><input type="number" className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.customFontSize} onChange={e => setConfig({...config, customFontSize: parseInt(e.target.value) || 12})}/><span className="text-slate-400 font-bold">pt</span></div>
+                                    )}
+                                </section>
+                                <section>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">列印份數</label>
+                                    <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.numCopies} onChange={e => setConfig({...config, numCopies: parseInt(e.target.value)})}/>
+                                </section>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 p-8 flex flex-col items-center border-t">
+                            <button onClick={handleGenerate} className="w-full md:w-80 flex items-center justify-center gap-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all transform hover:-translate-y-1">
+                                <Icon name="play" size={24}/> <span className="text-lg">生成題目預覽</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const PreviewView = () => (
+                <div className="min-h-screen bg-slate-800 flex flex-col items-center py-10 no-scrollbar">
+                    <div className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md h-16 shadow-lg z-50 px-6 flex items-center justify-between no-print">
+                        <button onClick={() => setView('setup')} className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-bold transition-all px-4 py-2 rounded-lg hover:bg-slate-100">
+                            <Icon name="back" size={20}/> 返回修改
+                        </button>
+                        <div className="flex items-center gap-4">
+                            <button onClick={handleGenerate} className="p-2 text-slate-500 hover:text-indigo-600 transition-all" title="重新生成"><Icon name="refresh" size={22}/></button>
+                            <button onClick={() => window.print()} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-black shadow-xl transition-all">
+                                <Icon name="printer" size={20}/> 列印 PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-12 space-y-0 flex flex-col items-center">
+                        {worksheets.map(sheet => (
+                            <React.Fragment key={sheet.id}>
+                                <div className="a4-sheet relative">
+                                    <div className="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-10">
+                                        <div>
+                                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">數學橫式運算練習卷</h2>
+                                            <div className="text-xs font-bold text-slate-500 mt-1">卷號：#{String(sheet.id + 1).padStart(3, '0')} | {config.allowCarry ? '允許進/借位' : '無進/借位'}</div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center border-b-2 border-slate-200 w-48 pb-1"><span className="text-sm font-bold">姓名:</span></div>
+                                            <div className="flex items-center border-b-2 border-slate-200 w-48 pb-1"><span className="text-sm font-bold">日期:</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-x-12 gap-y-12" style={{ gridTemplateColumns: `repeat(${config.columns}, 1fr)`, ...getFontSizeStyle() }}>
+                                        {sheet.problems.map((prob, pIdx) => (
+                                            <div key={pIdx} className="flex items-baseline font-mono overflow-hidden">
+                                                <span className="text-slate-300 text-xs w-6 mr-1 italic font-sans shrink-0">{pIdx + 1}.</span>
+                                                <div className="flex-1 flex items-center gap-2 whitespace-nowrap">
+                                                    {prob.nums.map((n, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <span className="text-slate-900 font-bold">{n}</span>
+                                                            {i < prob.nums.length - 1 && <span className="text-indigo-600 font-black">{prob.op === 'addition' ? '+' : '-'}</span>}
+                                                        </React.Fragment>
+                                                    ))}
+                                                    <span className="text-slate-900 font-bold">=</span>
+                                                    <div className="flex-1 min-w-[2rem] border-b-2 border-slate-300 h-[1em] mb-1"></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono">- 第 1 頁 (題目) -</div>
+                                </div>
+                                <div className="a4-sheet relative page-break-before">
+                                    <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3 mb-8">
+                                        <h2 className="text-lg font-black text-slate-400">標準解答卷 (#{String(sheet.id + 1).padStart(3, '0')})</h2>
+                                    </div>
+                                    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(4, config.columns + 2)}, 1fr)` }}>
+                                        {sheet.problems.map((prob, pIdx) => (
+                                            <div key={pIdx} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border border-slate-100">
+                                                <span className="text-slate-400 text-xs font-black">{pIdx + 1}</span>
+                                                <span className="font-mono font-black text-indigo-600 text-lg">{prob.result}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono">- 第 2 頁 (解答) -</div>
+                                </div>
+                            </React.Fragment>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            return view === 'setup' ? <SetupView /> : <PreviewView />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
