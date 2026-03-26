@@ -2,618 +2,394 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>元宵猜燈謎 - 職能治療師 鄭凱文 設計</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>氣球心算注意力挑戰 V14</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
     <style>
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-12px); } 75% { transform: translateX(12px); } }
-        .animate-shake { animation: shake 0.15s ease-in-out infinite; }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ca8a04; border-radius: 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
         
         body {
-            background-color: #450a0a;
+            font-family: 'Noto Sans TC', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+            height: 100vh;
             margin: 0;
-            overflow: hidden; 
-            color: #fef3c7;
-            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: none; /* 防止手機手勢干擾遊戲 */
         }
 
-        .bg-wallpaper {
-            background: radial-gradient(circle at center, #7f1d1d 0%, #450a0a 100%);
+        /* 氣球動畫層 */
+        .balloon-wrapper {
+            position: absolute;
+            bottom: -150px;
+            z-index: 10; /* 低於 UI 層 */
+            animation: rise linear forwards;
+        }
+
+        .wobble-layer {
+            animation: wobble 3s ease-in-out infinite;
+        }
+
+        .balloon {
+            width: 70px;
+            height: 90px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.25rem;
+            box-shadow: inset -8px -8px 15px rgba(0,0,0,0.1), 5px 5px 12px rgba(0,0,0,0.1);
+            cursor: pointer;
             position: relative;
         }
-        
-        .bg-wallpaper::before {
-            content: "";
+
+        @media (min-width: 768px) {
+            .balloon { width: 85px; height: 110px; font-size: 1.5rem; }
+        }
+
+        .balloon::after {
+            content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='60' viewBox='0 0 100 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 30c0-11 9-20 20-20s20 9 20 20h-5c0-8-7-15-15-15s-15 7-15 15h-5zm50 0c0-11 9-20 20-20s20 9 20 20h-5c0-8-7-15-15-15s-15 7-15 15h-5zM0 30c0-11 9-20 20-20s20 9 20 20h-5c0-8-7-15-15-15S5 22 5 30H0z' fill='%23fbbf24' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
-            opacity: 0.6;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 35px;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .balloon-blue { background-color: #3B82F6; }
+        .balloon-red { background-color: #EF4444; }
+        .balloon-yellow { background-color: #F59E0B; color: #451a03; }
+
+        @keyframes rise {
+            from { bottom: -150px; }
+            to { bottom: 115vh; }
+        }
+
+        @keyframes wobble {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(20px); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        /* 暫停控制 */
+        .paused .balloon-wrapper,
+        .paused .wobble-layer {
+            animation-play-state: paused !important;
+        }
+        
+        .paused .balloon { pointer-events: none; }
+
+        .popped {
+            animation: pop 0.2s ease-out forwards !important;
             pointer-events: none;
         }
 
-        .biaukai-title {
-            font-family: 'DFKai-SB', '標楷體', 'BiauKai', 'Apple LiSung', serif;
-            white-space: nowrap;
-            font-size: clamp(2.2rem, 10vw, 8rem);
-            background: linear-gradient(135deg, #fbbf24 0%, #fef3c7 25%, #fbbf24 50%, #fcd34d 75%, #fbbf24 100%);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(-1px -1px 0 #991b1b)
-                    drop-shadow(1px -1px 0 #991b1b)
-                    drop-shadow(-1px 1px 0 #991b1b)
-                    drop-shadow(1px 1px 0 #991b1b)
-                    drop-shadow(3px 3px 8px rgba(0,0,0,0.6));
+        .modal-bg {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
         }
 
-        .biaukai-subtitle {
-            font-family: 'DFKai-SB', '標楷體', 'BiauKai', 'Apple LiSung', serif;
-            color: #fef3c7;
-            letter-spacing: 0.2em;
+        /* 讓 UI 永遠在最上層 */
+        #game-ui {
+            z-index: 100;
         }
-
-        .lantern-inner-glow {
-            background: radial-gradient(circle at 50% 40%, rgba(253, 224, 71, 0.3) 0%, transparent 80%);
-        }
-
-        .done-stamp {
-            background: linear-gradient(135deg, #166534 0%, #064e3b 100%);
-            border: 1.5px solid #fde047;
-        }
-        
-        .full-viewport-center {
-            height: 100dvh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
+        #countdown-overlay {
+            z-index: 90;
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    <div id="app-root" class="relative w-full h-full">
+        
+        <!-- 主選單畫面 -->
+        <div id="menu-screen" class="absolute inset-0 flex items-center justify-center z-[150] p-4 bg-sky-100/50">
+            <div class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-md text-center border border-gray-100 flex flex-col max-h-full overflow-y-auto">
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-600 mb-1">氣球心算注意力挑戰</h1>
+                <p id="lib-count-text" class="text-xs text-gray-400 mb-6 font-bold">目前題庫：132 個國字</p>
+                
+                <div class="space-y-4 text-left mb-6">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">關卡時間 (秒)</label>
+                            <input type="number" id="input-game-time" value="30" class="w-full border-2 border-gray-100 rounded-xl p-2 mt-1 outline-none focus:border-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">氣球總數</label>
+                            <input type="number" id="input-total-balloons" value="15" class="w-full border-2 border-gray-100 rounded-xl p-2 mt-1 outline-none focus:border-blue-400">
+                        </div>
+                    </div>
 
-        const SVGIcons = {
-            timer: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            trophy: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
-            settings: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-            refresh: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>,
-            check: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-            trash: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-            grip: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
-            home: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-            plus: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-            arrowLeft: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
-            arrowRight: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
-            user: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-            users: <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        };
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase">飄浮速度: <span id="display-speed">8</span>s</label>
+                        <input type="range" id="input-speed-range" min="2" max="15" step="1" value="8" class="w-full h-2 bg-blue-100 rounded-lg appearance-none mt-1">
+                    </div>
 
-        const Icon = ({ name, size = 24, className = "" }) => (
-            <span style={{ width: size, height: size, display: 'inline-flex' }} className={`items-center justify-center shrink-0 overflow-visible ${className}`}>
-                {SVGIcons[name] || null}
-            </span>
-        );
+                    <!-- 修正：補回數字範圍輸入框 -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase">數字範圍 (1 ~ X)</label>
+                        <input type="number" id="input-max-num" value="10" min="1" class="w-full border-2 border-gray-100 rounded-xl p-2 mt-1 outline-none focus:border-blue-400">
+                    </div>
 
-        const useSoundEffect = () => {
-            const audioCtxRef = useRef(null);
-            const play = (freq, type, duration, gainValue = 0.1) => {
-                try {
-                    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                    if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
-                    const ctx = audioCtxRef.current;
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = type;
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(gainValue, ctx.currentTime + 0.05);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.start(); osc.stop(ctx.currentTime + duration);
-                } catch(e) {}
-            };
-            return {
-                playCorrect: () => { 
-                    play(523.25, 'sine', 0.4, 0.15); 
-                    setTimeout(() => play(659.25, 'sine', 0.4, 0.15), 100);
-                    setTimeout(() => play(783.99, 'sine', 0.5, 0.15), 200);
-                },
-                playWrong: () => play(150, 'sawtooth', 0.3, 0.1),
-                playClick: () => play(880, 'sine', 0.1, 0.05)
-            };
-        };
+                    <div class="p-3 bg-orange-50 rounded-xl border border-orange-100">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="input-advanced-mode" class="w-5 h-5 text-orange-500 rounded">
+                            <span class="text-sm font-bold text-orange-600">進階模式 (記憶國字氣球)</span>
+                        </label>
+                        <div id="setting-word-count" class="hidden flex items-center justify-between mt-3 pl-6">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-500 font-bold">字數:</span>
+                                <input type="number" id="input-target-word-count" value="3" class="w-12 border rounded p-1 text-center text-xs">
+                            </div>
+                            <button id="btn-open-lib" class="text-[10px] bg-orange-200 text-orange-700 px-3 py-1.5 rounded-lg font-bold">編輯題庫</button>
+                        </div>
+                    </div>
+                </div>
 
-        const RIDDLES_DATA = [
-            // 第一頁
-            { category: "字謎", question: "手語（猜一字）。", answer: "批" },
-            { category: "人物", question: "國王搭飛機（猜一明星）。", answer: "王菲" },
-            { category: "物品", question: "拿人鼻子當馬騎（猜一物品）。", answer: "眼鏡" },
-            { category: "食物", question: "一種食物有三個姓氏（猜一食物）。", answer: "羅宋湯" },
-            { category: "地名", question: "長城（猜一地名）。", answer: "萬里" },
-            { category: "成語", question: "翹翹板（猜一成語）。", answer: "此起彼落" },
-            { category: "字謎", question: "多一半（猜一字）。", answer: "夕" },
-            { category: "人物", question: "金金金金金（猜一明星）。", answer: "金城武" },
-            { category: "物品", question: "出入成雙，酸甜苦辣味總先嚐（猜一物品）。", answer: "筷子" },
-            { category: "食物", question: "馬不信，把老鼠揪了起來（猜一食物）。", answer: "馬鈴薯" },
-            { category: "地名", question: "狼來了（猜一地名）。", answer: "楊梅" },
-            { category: "成語", question: "舉重比賽（猜一成語）。", answer: "斤斤計較" },
-            { category: "字謎", question: "九十九（猜一字）。", answer: "白" },
-            { category: "人物", question: "用兩隻腳走路的老鼠（猜卡通人物）。", answer: "米老鼠" },
-            { category: "物品", question: "不能吃不能喝，每天都要嚐一口（猜一物品）。", answer: "牙膏" },
-            { category: "食物", question: "下面是火山，上面是大海（猜一食物）。", answer: "火鍋" },
-            { category: "地名", question: "我內人（猜一地名）。", answer: "梧棲" },
-            { category: "成語", question: "四通八達（猜一成語）。", answer: "頭頭是道" },
-            { category: "字謎", question: "一人在內（猜一字）。", answer: "肉" },
-            { category: "成語", question: "台灣農產品（猜一成語）。", answer: "土生土長" },
-            // 第二頁
-            { category: "字謎", question: "十個哥哥（猜一字）。", answer: "克" },
-            { category: "人物", question: "電視機聲音關小聲點（猜一神明）。", answer: "觀世音" },
-            { category: "物品", question: "綠衣漢，街上站，光吃紙（猜一物品）。", answer: "郵筒" },
-            { category: "食物", question: "珍珠白姑娘，許配竹葉郎（猜一食物）。", answer: "粽子" },
-            { category: "地名", question: "熱烘烘（猜一地名）。", answer: "暖暖" },
-            { category: "成語", question: "只騙中年人（猜一成語）。", answer: "童叟無欺" },
-            { category: "字謎", question: "金木水火（猜一字）。", answer: "坎" },
-            { category: "人物", question: "蚊子叮生肖但不叮豬（猜卡通人物）。", answer: "布丁狗" },
-            { category: "物品", question: "一個入口，兩條隧道（猜一物品）。", answer: "褲子" },
-            { category: "食物", question: "本來一大片，變成條條線（猜一食物）。", answer: "麵條" },
-            { category: "地名", question: "雨後春筍（猜一地名）。", answer: "新竹" },
-            { category: "成語", question: "不考慮中間（猜一成語）。", answer: "瞻前顧後" },
-            { category: "字謎", question: "有點自大（猜一字）。", answer: "臭" },
-            { category: "人物", question: "降落傘（猜一歷史人物）。", answer: "張飛" },
-            { category: "物品", question: "有硬有軟，有長有寬，夜晚上班（猜一物品）。", answer: "床" },
-            { category: "食物", question: "白白身子圓溜溜，樣子像桌球（猜食物）。", answer: "湯圓" },
-            { category: "地名", question: "天昏地暗（猜一地名）。", answer: "烏日" },
-            { category: "成語", question: "1、3、5、7、9（猜一成語）。", answer: "天下無雙" },
-            { category: "字謎", question: "目空一切（猜一字）。", answer: "口" },
-            { category: "成語", question: "2、4、6、8、10（猜一成語）。", answer: "無獨有偶" },
-            // 第三頁
-            { category: "字謎", question: "美中不足（猜一字）。", answer: "羊" },
-            { category: "人物", question: "回頭是岸（猜一歷史文學家）。", answer: "歸有光" },
-            { category: "物品", question: "指著你的臉、按著你的心（猜一物品）。", answer: "門鈴" },
-            { category: "食物", question: "兄弟兩個瘦又長，下池塘變黃胖（猜食物）。", answer: "油條" },
-            { category: "地名", question: "世界和平（猜一地名）。", answer: "大同" },
-            { category: "成語", question: "禿頭撐傘（猜一成語）。", answer: "無法無天" },
-            { category: "字謎", question: "男生太多（猜一字）。", answer: "妙" },
-            { category: "人物", question: "薏仁被趕出家門（猜一種人物）。", answer: "街頭藝人" },
-            { category: "物品", question: "會走沒有腿，過河沒有水（猜一物品）。", answer: "象棋" },
-            { category: "食物", question: "豆子是它爹媽，和爹媽不一樣（猜食物）。", answer: "豆腐" },
-            { category: "地名", question: "仙女下凡（猜一地名）。", answer: "七美" },
-            { category: "成語", question: "小孩子跌倒（猜一成語）。", answer: "馬馬虎虎" },
-            { category: "字謎", question: "旅行坐飛機（猜一字）。", answer: "輩" },
-            { category: "人物", question: "一口井、一杯茶、兩個杯子（猜人物）。", answer: "警察伯伯" },
-            { category: "物品", question: "上去一步步，一下滑到底（猜一物品）。", answer: "滑梯" },
-            { category: "食物", question: "彎彎曲曲像彈簧，開水燙一燙（猜食物）。", answer: "泡麵" },
-            { category: "地名", question: "雙火雙水（猜一地名）。", answer: "淡水" },
-            { category: "成語", question: "身穿著金色衣服的人（猜一成語）。", answer: "一名驚人" },
-            { category: "字謎", question: "早不說晚不說（猜一字）。", answer: "許" },
-            { category: "成語", question: "一隻羊贏了閉氣比賽（猜一成語）。", answer: "揚眉吐氣" },
-            // 第四頁
-            { category: "字謎", question: "七人頭上長草（猜一字）。", answer: "花" },
-            { category: "人物", question: "黑人與白雪公主結婚的小孩（猜人物）。", answer: "灰姑娘" },
-            { category: "物品", question: "前面來船舵手在上，走後路乾（猜物品）。", answer: "熨斗" },
-            { category: "食物", question: "不平凡的結果（猜一水果）。", answer: "奇異果" },
-            { category: "地名", question: "四分五裂（猜一地名）。", answer: "九份" },
-            { category: "成語", question: "不能到加油站上班的人（猜一成語）。", answer: "油腔滑調" },
-            { category: "字謎", question: "一口吃掉牛尾巴（猜一字）。", answer: "告" },
-            { category: "食物", question: "全身是疙瘩，有點像苦瓜（猜一水果）。", answer: "釋迦" },
-            { category: "地名", question: "地層下陷（猜一地名）。", answer: "深坑" },
-            { category: "成語", question: "牛一下水游泳後就不叫了（猜一成語）。", answer: "有勇無謀" },
-            { category: "字謎", question: "大火燒到耳朵邊（猜一字）。", answer: "耿" },
-            { category: "食物", question: "小小罈子，裝滿餃子（猜一水果）。", answer: "橘子" },
-            { category: "地名", question: "老鼠當道（猜一地名）。", answer: "貓空" },
-            { category: "成語", question: "2、3、4、5、6、7、8、9（猜成語）。", answer: "缺衣少食" },
-            { category: "字謎", question: "八個兄弟一起賞月（猜一字）。", answer: "脫" },
-            { category: "食物", question: "脫了紅袍子，是個白胖子（猜一水果）。", answer: "荔枝" },
-            { category: "地名", question: "被蚊子咬（猜一地名）。", answer: "艋舺" },
-            { category: "成語", question: "一條狗過了獨木橋就不叫（猜一成語）。", answer: "過目不忘" },
-            { category: "字謎", question: "只有姐姐妹妹和弟弟（猜一字）。", answer: "歌" },
-            { category: "成語", question: "十字形背殼的烏龜出名了（猜一成語）。", answer: "實至名歸" },
-            // 第五頁
-            { category: "字謎", question: "需要一半，留下一半（猜一字）。", answer: "雷" },
-            { category: "食物", question: "紅尖嘴兒，肚裡好味道（猜一水果）。", answer: "水蜜桃" },
-            { category: "地名", question: "失敗之子（猜一地名）。", answer: "成功" },
-            { category: "成語", question: "十隻羊九隻在圈（猜一成語）。", answer: "抑揚頓挫" },
-            { category: "字謎", question: "一家四口，還有一隻狗（猜一字）。", answer: "器" },
-            { category: "食物", question: "肥肥胖胖不是豬，圓圓滾滾不是球（水果）。", answer: "西瓜" },
-            { category: "地名", question: "農夫插秧（猜一地名）。", answer: "田中" },
-            { category: "俗語", question: "老婆不幫忙（猜一俗語）。", answer: "公事公辦" },
-            { category: "字謎", question: "一人一張口，長只手（猜一字）。", answer: "拿" },
-            { category: "地名", question: "理字不要土（猜一地名）。", answer: "王田" },
-            { category: "俗語", question: "老和尚看嫁妝（猜一俗語）。", answer: "下輩子再說" },
-            { category: "地名", question: "成績改錯了（猜一地名）。", answer: "追分" },
-            { category: "字謎", question: "旭日東昇（猜一字）。", answer: "九" },
-            { category: "地名", question: "你我他疊一起（猜一地名）。", answer: "三重" },
-            { category: "字謎", question: "守株待兔（猜一字）。", answer: "柳" },
-            { category: "地名", question: "忠孝仁愛信義和平（猜一地名）。", answer: "八德" },
-            { category: "食物", question: "青皮包白瓤，外型像條槓（猜食物）。", answer: "絲瓜" },
-            { category: "地名", question: "東西賣光光（猜一地名）。", answer: "通宵" },
-            { category: "物品", question: "遠看像面鼓，近看像面鑼（猜物品）。", answer: "碗" },
-            { category: "成語", question: "螃蟹走路（猜一成語）。", answer: "橫行霸道" }
-        ].map((r, i) => ({ ...r, id: (i + 1).toString() }));
-
-        const App = () => {
-            const [view, setView] = useState('menu'); 
-            const [mode, setMode] = useState('single'); 
-            const [teamCount, setTeamCount] = useState(2);
-            const [currentRiddlePage, setCurrentRiddlePage] = useState(0); 
-            const [gameRiddles, setGameRiddles] = useState([]); 
-            const [completed, setCompleted] = useState(new Set());
-            const [scores, setScores] = useState({});
-            const [activeTeamIdx, setActiveTeamIdx] = useState(0);
-            const [timer, setTimer] = useState(0);
-            const [selectedRiddle, setSelectedRiddle] = useState(null);
-            const [userInput, setUserInput] = useState('');
-            const [feedback, setFeedback] = useState(null); 
-            const [hintLevel, setHintLevel] = useState(0);
-            const [showFullAnswer, setShowFullAnswer] = useState(false);
-            const [riddlePool, setRiddlePool] = useState(RIDDLES_DATA);
-            const [selectedPoolIds, setSelectedPoolIds] = useState(new Set(RIDDLES_DATA.map(r => r.id)));
-            const [draggedIdx, setDraggedIdx] = useState(null);
-            const [newRiddle, setNewRiddle] = useState({ category: '自訂', question: '', answer: '' });
-
-            const sound = useSoundEffect();
-            const currentRiddleSubset = gameRiddles.slice(currentRiddlePage * 20, (currentRiddlePage + 1) * 20);
-            const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
-            useEffect(() => {
-                let interval;
-                if (view === 'game') interval = setInterval(() => setTimer(prev => prev + 1), 1000);
-                return () => clearInterval(interval);
-            }, [view]);
-
-            const handleModeClick = (m) => {
-                sound.playClick();
-                setMode(m);
-                if (m === 'group') setView('teamSelect');
-                else startNewGame(m, 1);
-            };
-
-            const startNewGame = (m, tc) => {
-                const initialScores = {};
-                for (let i = 0; i < tc; i++) initialScores[i] = 0;
-                setScores(initialScores);
-                setTeamCount(tc);
-                setCurrentRiddlePage(0);
-                setCompleted(new Set());
-                setTimer(0);
-                setActiveTeamIdx(0);
-                setGameRiddles(riddlePool.filter(r => selectedPoolIds.has(r.id)));
-                setView('game');
-            };
-
-            const handleRiddleClick = (indexInSubset) => {
-                const actualIndex = currentRiddlePage * 20 + indexInSubset;
-                if (completed.has(actualIndex)) return;
-                sound.playClick();
-                setSelectedRiddle({ ...gameRiddles[actualIndex], actualIndex });
-                setUserInput('');
-                setFeedback(null);
-                setHintLevel(0);
-                setShowFullAnswer(false);
-            };
-
-            const checkAnswer = () => {
-                if (userInput.trim() === selectedRiddle.answer || showFullAnswer) {
-                    setFeedback('correct');
-                    sound.playCorrect();
-                    setCompleted(prev => {
-                        const next = new Set(prev);
-                        next.add(selectedRiddle.actualIndex);
-                        return next;
-                    });
-                    setScores(prev => ({ ...prev, [activeTeamIdx]: (prev[activeTeamIdx] || 0) + (showFullAnswer ? 0 : 1) }));
-                    setTimeout(() => {
-                        setSelectedRiddle(null);
-                        if (mode === 'group') setActiveTeamIdx((activeTeamIdx + 1) % teamCount);
-                        if (completed.size + 1 === gameRiddles.length) setView('result');
-                    }, 1000);
-                } else {
-                    setFeedback('wrong');
-                    sound.playWrong();
-                    setTimeout(() => setFeedback(null), 1000);
-                }
-            };
-
-            const addNewRiddle = () => {
-                if (!newRiddle.question || !newRiddle.answer) return;
-                sound.playClick();
-                const id = Date.now().toString();
-                setRiddlePool(prev => [{ ...newRiddle, id }, ...prev]);
-                setSelectedPoolIds(prev => new Set(prev).add(id));
-                setNewRiddle({ category: '自訂', question: '', answer: '' });
-            };
-
-            const handleDragStart = (idx) => setDraggedIdx(idx);
-            const handleDrop = (idx) => {
-                if (draggedIdx === null || draggedIdx === idx) return;
-                const newPool = [...riddlePool];
-                const item = newPool[draggedIdx];
-                newPool.splice(draggedIdx, 1);
-                newPool.splice(idx, 0, item);
-                setRiddlePool(newPool);
-                setDraggedIdx(null);
-                sound.playClick();
-            };
-
-            const Footer = ({ isSmall = false }) => (
-                <div className={`w-full text-center ${isSmall ? 'py-1' : 'py-6'} shrink-0 mt-auto z-40 relative`}>
-                    <a href="https://www.facebook.com/mpotkevin" target="_blank" rel="noopener noreferrer" className={`${isSmall ? 'text-xs' : 'text-sm md:text-xl'} text-yellow-500/40 hover:text-yellow-400 font-bold transition-all flex items-center justify-center gap-2 group`}>
-                        <span>設計：職能治療師 - 鄭凱文</span>
+                <button id="btn-start" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg transition active:scale-95 text-lg mb-4">
+                    開始挑戰
+                </button>
+                
+                <div class="pt-4 border-t border-gray-100">
+                    <a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-xs text-blue-400 font-bold flex items-center justify-center">
+                        設計：職能治療師 - 鄭凱文
                     </a>
                 </div>
-            );
+            </div>
+        </div>
 
-            const Lantern = ({ number, category, isDone, onClick }) => (
-                <div onClick={onClick} className={`relative cursor-pointer transition-all duration-300 group flex flex-col items-center ${isDone ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}>
-                    <div className={`mb-1 px-3 md:px-5 py-0.5 md:py-1 rounded-full text-xs md:text-xl font-black border transition-all shadow-sm ${isDone ? 'bg-gray-800 text-gray-400 border-gray-600' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50 group-hover:bg-yellow-500 group-hover:text-red-950'}`}>
-                        {category}
-                    </div>
-                    <div className="relative shrink-0">
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-yellow-600/50" />
-                        <div className={`w-14 h-18 md:w-20 md:h-24 rounded-2xl md:rounded-[2rem] relative flex items-center justify-center border-2 overflow-hidden transition-all shadow-lg ${isDone ? 'bg-gray-800 border-gray-600' : 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-yellow-500/40'}`}>
-                            {!isDone && <div className="absolute inset-0 lantern-inner-glow" />}
-                            <span className={`text-white font-serif font-black transition-all text-xl md:text-4xl drop-shadow-md ${isDone ? 'opacity-20' : ''}`}>
-                                {number}
-                            </span>
-                            <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-yellow-800 via-yellow-400 to-yellow-800" />
-                            <div className="absolute bottom-0 w-full h-1 bg-gradient-to-r from-yellow-800 via-yellow-400 to-yellow-800" />
-                        </div>
-                        {isDone && (
-                            <div className="absolute -top-1 -right-1 z-30">
-                                <div className="done-stamp w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                                    <Icon name="check" size={14} className="text-yellow-200" />
-                                </div>
-                            </div>
-                        )}
+        <!-- 題庫管理 -->
+        <div id="lib-screen" class="hidden absolute inset-0 flex items-center justify-center z-[200] modal-bg p-4">
+            <div class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-gray-800">國字題庫管理</h2>
+                    <button id="btn-close-lib" class="text-gray-400 text-3xl font-bold">&times;</button>
+                </div>
+                <div class="flex space-x-2 mb-4">
+                    <input type="text" id="input-new-word" maxlength="1" placeholder="填字" class="flex-grow border-2 border-gray-100 rounded-xl p-2 text-center">
+                    <button id="btn-add-word" class="bg-orange-500 text-white px-6 py-2 rounded-xl font-bold">新增</button>
+                </div>
+                <div id="word-list" class="grid grid-cols-5 sm:grid-cols-8 gap-2 overflow-y-auto p-2 bg-gray-50 rounded-2xl flex-grow"></div>
+            </div>
+        </div>
+
+        <!-- 遊戲畫布 -->
+        <div id="game-canvas" class="w-full h-full relative overflow-hidden"></div>
+
+        <!-- 操作 UI -->
+        <div id="game-ui" class="hidden absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none">
+            <div class="space-y-2 pointer-events-auto">
+                <div id="timer-ui" class="bg-white/90 px-4 py-2 rounded-xl font-bold text-blue-600 shadow-md border border-blue-200 text-sm">時間: --s</div>
+                <div id="progress-ui" class="bg-white/90 px-4 py-2 rounded-xl font-bold text-purple-600 shadow-md border border-purple-200 text-sm">進度: 0 / 0</div>
+            </div>
+            <div class="flex space-x-2 pointer-events-auto">
+                <button id="btn-pause" class="bg-yellow-500 text-white px-5 py-3 rounded-xl font-bold shadow-lg text-sm active:bg-yellow-600">暫停</button>
+                <button id="btn-stop" class="bg-red-500 text-white px-5 py-3 rounded-xl font-bold shadow-lg text-sm active:bg-red-600">結束</button>
+            </div>
+        </div>
+
+        <div id="countdown-overlay" class="hidden absolute inset-0 flex items-center justify-center text-9xl font-bold text-blue-500 pointer-events-none"></div>
+
+        <!-- 結算畫面 -->
+        <div id="result-screen" class="hidden absolute inset-0 flex items-center justify-center z-[150] modal-bg p-4">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center">
+                <h2 class="text-xl font-bold mb-6">請輸入答案</h2>
+                <div class="space-y-4 text-left">
+                    <input type="number" id="ans-sum" placeholder="總和數字" class="w-full border-2 border-gray-100 rounded-xl p-4 text-xl font-bold">
+                    <div id="ans-words-container" class="hidden">
+                        <input type="text" id="ans-words" placeholder="國字順序" class="w-full border-2 border-gray-100 rounded-xl p-4 text-xl font-bold">
                     </div>
                 </div>
-            );
+                <button id="btn-verify" class="w-full mt-6 bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg">提交</button>
+            </div>
+        </div>
 
-            return (
-                <div className="h-[100dvh] w-screen bg-red-950 text-yellow-100 selection:bg-yellow-500 selection:text-red-950 relative flex flex-col overflow-hidden bg-wallpaper">
-                    
-                    {view === 'menu' && (
-                        <div className="full-viewport-center space-y-6 md:space-y-12 px-4">
-                            <div className="text-center shrink-0">
-                                <h1 className="biaukai-title font-black leading-tight">元宵猜燈謎</h1>
-                                <p className="mt-4 md:mt-8 biaukai-subtitle text-lg md:text-3xl opacity-90 font-normal">舊時燈謎新玩法，健腦暖心慶元宵</p>
-                            </div>
-                            <div className="flex flex-col items-center gap-4 md:gap-6 w-full shrink-0">
-                                <button onClick={() => handleModeClick('single')} className="w-full max-w-sm bg-red-700 hover:bg-red-600 py-4 md:py-6 rounded-2xl md:rounded-[2rem] text-xl md:text-3xl font-black border-b-[6px] border-red-950 active:translate-y-1 shadow-2xl flex items-center justify-center gap-4 transition-all">
-                                    <Icon name="user" size={28}/> 個人模式挑戰
-                                </button>
-                                <button onClick={() => handleModeClick('group')} className="w-full max-w-sm bg-yellow-600 hover:bg-yellow-500 text-red-950 py-4 md:py-6 rounded-2xl md:rounded-[2rem] text-xl md:text-3xl font-black border-b-[6px] border-yellow-800 active:translate-y-1 shadow-2xl flex items-center justify-center gap-4 transition-all">
-                                    <Icon name="users" size={28}/> 分組趣味競賽
-                                </button>
-                            </div>
-                            <button onClick={() => { sound.playClick(); setView('settings'); }} className="fixed bottom-6 right-6 md:bottom-10 md:right-10 bg-red-900/90 backdrop-blur-md p-4 md:p-6 rounded-full border-2 border-yellow-600 shadow-2xl hover:scale-110 transition-all text-yellow-500 group z-50">
-                                <Icon name="settings" size={28} className="md:w-10 md:h-10 group-hover:rotate-90 duration-700" />
-                            </button>
-                            <Footer />
-                        </div>
-                    )}
+        <!-- 結果反饋 -->
+        <div id="feedback-screen" class="hidden absolute inset-0 flex items-center justify-center z-[160] modal-bg p-4">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center">
+                <div id="res-icon" class="text-6xl mb-4">🎉</div>
+                <h2 id="res-title" class="font-bold text-xl mb-4">結果</h2>
+                <div id="res-body" class="text-left bg-gray-50 p-4 rounded-xl mb-6 space-y-2"></div>
+                <button id="btn-restart" class="w-full bg-blue-500 text-white font-bold py-4 rounded-xl">返回主選單</button>
+            </div>
+        </div>
+    </div>
 
-                    {view === 'teamSelect' && (
-                        <div className="full-viewport-center mx-auto px-4 w-full">
-                            <h2 className="text-3xl md:text-6xl biaukai-subtitle font-black mb-8 md:mb-12 text-center text-yellow-50">請選擇競賽組數</h2>
-                            <div className="grid grid-cols-3 gap-4 md:gap-8 p-4 max-w-3xl w-full">
-                                {[2, 3, 4].map(num => (
-                                    <button key={num} onClick={() => { sound.playClick(); startNewGame('group', num); }} className="bg-red-800 hover:bg-red-700 border-2 md:border-4 border-yellow-600 rounded-2xl md:rounded-[3rem] py-8 md:py-12 transition-all transform hover:scale-105 flex flex-col items-center shadow-2xl group">
-                                        <span className="text-5xl md:text-8xl font-black text-yellow-400 group-hover:text-yellow-200 transition-colors">{(num).toString()}</span>
-                                        <span className="text-xs md:text-xl font-bold mt-2 md:mt-4 opacity-80 uppercase biaukai-subtitle">組隊</span>
-                                    </button>
-                                ))}
-                            </div>
-                            <button onClick={() => { sound.playClick(); setView('menu'); }} className="text-yellow-500 hover:text-yellow-300 font-bold text-xl md:text-2xl underline underline-offset-8 mt-12 transition-all biaukai-subtitle">返回主選單</button>
-                            <Footer isSmall />
-                        </div>
-                    )}
+    <script>
+        // --- 題庫與狀態 ---
+        let chineseLibrary = ["天", "地", "人", "水", "火", "木", "金", "山", "海", "雲", "風", "月", "日", "光", "星", "花", "鳥", "石", "川", "龍", "虎", "雨", "電", "心", "夢", "森", "林", "湖", "泉", "冰", "雪", "霧", "露", "霜", "霄", "霆", "震", "虹", "霓", "霞", "魚", "蝦", "蟹", "蛇", "鹿", "象", "馬", "牛", "羊", "雞", "犬", "豕", "貓", "鼠", "兔", "東", "西", "南", "北", "上", "下", "左", "右", "中", "紅", "橙", "黃", "綠", "藍", "靛", "紫", "黑", "白", "青", "灰", "褐", "仁", "義", "禮", "智", "信", "忠", "孝", "愛", "和", "平", "誠", "勇", "春", "夏", "秋", "冬", "晨", "昏", "晝", "夜", "銀", "銅", "鐵", "錫", "珠", "寶", "玉", "翠", "大", "小", "長", "短", "高", "低", "寬", "窄", "文", "武", "詩", "書", "琴", "棋", "畫", "劍", "盾", "神", "仙", "鬼", "佛", "聖", "賢", "酒", "茶", "飯", "菜"];
 
-                    {view === 'game' && (
-                        <div className="h-[100dvh] w-screen flex flex-col overflow-hidden">
-                            <div className="bg-red-900/95 border-b border-yellow-600/50 p-2 md:p-3 h-14 md:h-16 flex justify-between items-center shrink-0 z-50">
-                                <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar">
-                                    <div className="flex items-center gap-2 bg-black/30 px-2 py-1 rounded-full border border-yellow-700">
-                                        <Icon name="timer" size={14} className="text-yellow-400" />
-                                        <span className="font-mono text-sm md:text-xl">{formatTime(timer)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-black/30 px-2 py-1 rounded-full border border-yellow-700">
-                                        <Icon name="trophy" size={14} className="text-yellow-400" />
-                                        <span className="text-sm md:text-xl font-bold">{completed.size}/{gameRiddles.length}</span>
-                                    </div>
-                                </div>
-                                
-                                {mode === 'group' && (
-                                    <div className="flex items-center justify-center gap-1 md:gap-2 flex-grow max-w-sm md:max-w-xl px-2">
-                                        {[...Array(teamCount)].map((_, i) => (
-                                            <button key={i} onClick={() => { sound.playClick(); setActiveTeamIdx(i); }} className={`flex-1 min-w-0 px-1 py-0.5 md:py-1 rounded-lg md:rounded-xl border transition-all flex flex-col items-center ${activeTeamIdx === i ? 'bg-yellow-600 text-red-950 border-yellow-300 shadow-lg scale-105' : 'bg-red-800 border-red-700 text-yellow-600 opacity-60'}`}>
-                                                <span className="text-[8px] md:text-[10px] font-black opacity-80">T{i + 1}</span>
-                                                <span className="text-sm md:text-xl font-black">{(scores[i] || 0).toString()}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <button onClick={() => { sound.playClick(); setView('menu'); }} className="flex items-center gap-1 bg-red-700 hover:bg-red-600 px-3 py-1.5 rounded-full border border-yellow-500/50 text-yellow-100 transition-all z-50 shadow-md">
-                                    <Icon name="home" size={18} />
-                                    <span className="text-sm font-bold hidden md:inline">選單</span>
-                                </button>
-                            </div>
-
-                            <div className="flex-1 flex flex-col items-center justify-start p-2 md:p-4 min-h-0 relative">
-                                <div className="flex items-center justify-between w-full max-w-4xl mb-4 shrink-0 z-40 px-2">
-                                    <button onClick={() => { const total = Math.ceil(gameRiddles.length / 20); setCurrentRiddlePage(prev => (prev - 1 + total) % total); sound.playClick(); }} className="p-2 rounded-full border border-yellow-600/30 transition-all bg-red-900/50">
-                                        <Icon name="arrowLeft" size={24} className="text-yellow-500" />
-                                    </button>
-                                    <span className="bg-red-900/95 px-4 md:px-8 py-1 md:py-2 rounded-full border border-yellow-600 text-yellow-400 font-black text-sm md:text-xl biaukai-subtitle shadow-lg">
-                                        挑戰：{(currentRiddlePage * 20 + 1).toString()} - {(currentRiddlePage * 20 + Math.min(20, gameRiddles.length - currentRiddlePage * 20)).toString()} 題
-                                    </span>
-                                    <button onClick={() => { const total = Math.ceil(gameRiddles.length / 20); setCurrentRiddlePage(prev => (prev + 1) % total); sound.playClick(); }} className="p-2 rounded-full border border-yellow-600/30 transition-all bg-red-900/50">
-                                        <Icon name="arrowRight" size={24} className="text-yellow-500" />
-                                    </button>
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-6 bg-red-900/30 rounded-3xl md:rounded-[3rem] border border-yellow-600/10 w-full max-w-6xl shadow-inner min-h-0">
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 md:gap-x-8 gap-y-6 md:gap-y-12 justify-items-center py-2">
-                                        {currentRiddleSubset.map((r, i) => (
-                                            <Lantern key={r.id} number={currentRiddlePage * 20 + i + 1} category={r.category} isDone={completed.has(currentRiddlePage * 20 + i)} onClick={() => handleRiddleClick(i)} />
-                                        ))}
-                                    </div>
-                                </div>
-                                <Footer isSmall />
-                            </div>
-                        </div>
-                    )}
-
-                    {view === 'settings' && (
-                        <div className="h-[100dvh] w-screen flex flex-col bg-red-950 animate-in fade-in duration-300 overflow-hidden text-white">
-                            <div className="p-4 md:p-6 border-b border-yellow-600/30 flex justify-between items-center bg-red-800 shrink-0 shadow-lg">
-                                <div className="flex flex-col text-white">
-                                    <h2 className="text-xl md:text-4xl font-black text-yellow-500 flex items-center gap-2 md:gap-6 biaukai-subtitle tracking-widest uppercase">
-                                        <Icon name="settings" size={24} className="md:w-12 md:h-12"/> 題庫管理
-                                    </h2>
-                                    <p className="hidden md:block text-yellow-200/50 text-xl font-serif mt-1 italic">共 {riddlePool.length} 題</p>
-                                </div>
-                                <button onClick={() => { sound.playClick(); setView('menu'); }} className="bg-yellow-600 text-red-950 px-4 md:px-10 py-2 md:py-4 rounded-xl md:rounded-2xl text-lg md:text-2xl font-black shadow-md hover:bg-yellow-500 transition-all border-b-4 border-yellow-800 biaukai-subtitle">確認返回</button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-red-950 min-h-0">
-                                <div className="max-w-6xl mx-auto w-full space-y-4 pb-20">
-                                    <div className="bg-red-900/60 p-3 md:p-4 rounded-2xl border border-yellow-600/20 shadow-inner mb-4">
-                                        <div className="flex flex-wrap items-center gap-2 md:gap-4">
-                                            <input type="text" placeholder="類別" value={newRiddle.category} onChange={e => setNewRiddle(s => ({...s, category: e.target.value}))} className="w-20 md:w-32 bg-red-950 border border-yellow-600/30 rounded-lg px-2 py-1.5 text-sm md:text-xl outline-none text-white" />
-                                            <input type="text" placeholder="謎題" value={newRiddle.question} onChange={e => setNewRiddle(s => ({...s, question: e.target.value}))} className="flex-1 min-w-[150px] bg-red-950 border border-yellow-600/30 rounded-lg px-2 py-1.5 text-sm md:text-xl outline-none text-white" />
-                                            <input type="text" placeholder="底" value={newRiddle.answer} onChange={e => setNewRiddle(s => ({...s, answer: e.target.value}))} className="w-20 md:w-48 bg-red-950 border border-yellow-600/30 rounded-lg px-2 py-1.5 text-sm md:text-xl outline-none text-white" />
-                                            <button onClick={addNewRiddle} className="bg-yellow-600 text-red-950 px-4 md:px-8 py-1.5 md:py-2 rounded-lg font-black hover:bg-yellow-500 text-sm md:text-xl border-b-2 border-yellow-800 biaukai-subtitle">新增</button>
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        {riddlePool.map((r, idx) => (
-                                            <div key={r.id} draggable onDragStart={() => handleDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={() => handleDrop(idx)}
-                                                className={`bg-red-900/40 p-2 md:p-3 rounded-xl border border-yellow-600/10 flex items-center justify-between group cursor-grab hover:bg-red-900 transition-all ${draggedIdx === idx ? 'opacity-20 shadow-none' : 'shadow-md'}`} >
-                                                <div className="flex items-center gap-2 md:gap-5 flex-1 text-white overflow-hidden">
-                                                    <Icon name="grip" size={16} className="text-yellow-600/20 hidden md:block" />
-                                                    <div className="text-sm md:text-2xl font-black text-yellow-500/60 w-8 md:w-10 text-center">#{idx + 1}</div>
-                                                    <button onClick={() => { sound.playClick(); const n = new Set(selectedPoolIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedPoolIds(n); }} className={`w-8 h-8 md:w-10 md:h-10 rounded-lg border flex items-center justify-center shrink-0 ${selectedPoolIds.has(r.id) ? 'bg-yellow-500 border-yellow-200 text-red-950 shadow-inner' : 'border-yellow-600/20 text-transparent'}`} ><Icon name="check" size={16} /></button>
-                                                    <div className="flex flex-col ml-2 overflow-hidden">
-                                                        <span className="text-[8px] text-yellow-500/40 font-black uppercase tracking-widest">{r.category}</span>
-                                                        <span className="text-sm md:text-2xl font-medium line-clamp-1 opacity-95">{r.question}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2 md:gap-10 pr-2 shrink-0 text-white font-serif">
-                                                    <span className="text-xs md:text-xl text-yellow-400 font-mono bg-black/30 px-2 md:px-5 py-1 md:py-2 rounded-lg border border-yellow-900/30">答: {r.answer}</span>
-                                                    <button onClick={() => { sound.playClick(); setRiddlePool(prev => prev.filter(x => x.id !== r.id)); }} className="text-red-500 p-1 hover:bg-red-500/20 rounded-full"><Icon name="trash" size={18} /></button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            <Footer isSmall />
-                        </div>
-                    )}
-
-                    {view === 'result' && (
-                        <div className="flex flex-col justify-center items-center h-full w-full space-y-4 md:space-y-8 px-4 text-white text-center">
-                            <div className="text-7xl md:text-[10rem]">🎇</div>
-                            <h2 className="text-4xl md:text-7xl font-black text-yellow-500 drop-shadow-2xl biaukai-subtitle">大會圓滿結束</h2>
-                            <div className="bg-red-900/50 p-6 md:p-12 rounded-3xl md:rounded-[4rem] border border-yellow-600/30 min-w-[280px] md:min-w-[500px] shadow-xl">
-                                <p className="text-2xl md:text-5xl mb-4 md:mb-8 font-black font-serif uppercase tracking-widest text-yellow-50">總耗時：<span className="text-yellow-400 font-mono">{formatTime(timer)}</span></p>
-                                {mode === 'group' && (
-                                    <div className="space-y-2 md:space-y-4 pt-4 border-t border-yellow-600/20 text-white">
-                                        {[...Array(teamCount)].map((_, i) => (
-                                            <div key={i} className={`flex justify-between items-center text-xl md:text-4xl px-4 md:px-12 py-3 md:py-5 rounded-xl md:rounded-[2rem] ${scores[i] === Math.max(...Object.values(scores)) ? 'bg-yellow-600/30 border border-yellow-500' : 'bg-black/40'}`}>
-                                                <span className="font-serif font-bold">第 {i + 1} 組</span>
-                                                <span className="font-black text-yellow-400">{(scores[i] || 0).toString()} 分</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <button onClick={() => { sound.playClick(); setView('menu'); }} className="bg-yellow-600 text-red-950 px-10 md:px-24 py-4 md:py-8 rounded-full text-2xl md:text-5xl font-black shadow-xl border-b-[8px] border-yellow-800 active:translate-y-2 transition-all biaukai-subtitle">回主選單</button>
-                            <Footer isSmall />
-                        </div>
-                    )}
-
-                    {selectedRiddle && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-black/95 backdrop-blur-xl animate-in fade-in">
-                            <div className={`bg-red-800 border-[4px] md:border-[8px] rounded-3xl md:rounded-[5rem] max-w-5xl w-full h-[95dvh] shadow-2xl relative flex flex-col items-center p-4 md:p-10 transition-all duration-300
-                                ${feedback === 'correct' ? 'border-green-500 scale-105' : feedback === 'wrong' ? 'border-red-500 animate-shake' : 'border-yellow-500'}`}>
-                                
-                                {mode === 'group' && (
-                                    <div className="absolute top-4 left-4 md:top-6 md:left-10 z-50">
-                                        <div className="bg-white/95 text-red-950 px-4 md:px-8 py-1 md:py-2 rounded-full font-black shadow-xl border border-red-900/10 text-lg md:text-3xl biaukai-subtitle">
-                                            第 {activeTeamIdx + 1} 組
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="mt-8 md:mt-0 px-6 md:px-12 py-1.5 md:py-3 bg-yellow-600 text-red-950 rounded-full text-lg md:text-2xl font-black shadow-lg border-b-4 border-yellow-800 shrink-0 biaukai-subtitle">
-                                    {selectedRiddle.category} 謎題
-                                </div>
-
-                                <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 space-y-4 md:space-y-6 overflow-hidden py-2 text-white text-center">
-                                    <h3 className="font-black leading-tight text-yellow-50 drop-shadow-lg max-w-4xl biaukai-subtitle"
-                                        style={{ fontSize: 'clamp(1.2rem, 4vh, 3.8rem)' }}>
-                                        {selectedRiddle.question}
-                                    </h3>
-
-                                    <div className="flex justify-center gap-2 md:gap-3 flex-wrap shrink-0">
-                                        {[...selectedRiddle.answer].map((char, i) => (
-                                            <div key={i} className={`w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 border-2 rounded-xl md:rounded-[1.2rem] flex items-center justify-center text-xl sm:text-5xl font-black transition-all ${i < hintLevel || showFullAnswer ? 'bg-yellow-500 text-red-950 border-yellow-200' : 'bg-red-950/50 border-yellow-600/30 text-transparent'}`}>
-                                                <span className="leading-none">{(i < hintLevel || showFullAnswer) ? char : '?'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="w-full max-w-4xl flex flex-col space-y-4 md:space-y-6 shrink-0">
-                                        {!showFullAnswer && (
-                                            <input autoFocus type="text" placeholder="在此輸入謎底..." value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && checkAnswer()}
-                                                className={`w-full bg-red-950 border-2 md:border-4 rounded-xl md:rounded-[2.5rem] px-4 md:px-8 py-3 md:py-5 text-xl md:text-4xl text-center outline-none focus:border-yellow-400 text-white shadow-inner transition-all
-                                                ${feedback === 'wrong' ? 'border-red-500' : 'border-yellow-600/40'}`} />
-                                        )}
-                                        
-                                        <div className="grid grid-cols-4 gap-2 md:gap-4 shrink-0 h-14 md:h-20 biaukai-subtitle font-black">
-                                            <button onClick={() => { if(hintLevel < selectedRiddle.answer.length) { sound.playClick(); setHintLevel(h => h+1); } }} disabled={hintLevel >= selectedRiddle.answer.length || showFullAnswer} 
-                                                className="rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white shadow-lg active:translate-y-1 flex items-center justify-center transition-all disabled:opacity-30 text-sm md:text-3xl">
-                                                提示
-                                            </button>
-                                            <button onClick={() => { sound.playClick(); setShowFullAnswer(true); setUserInput(selectedRiddle.answer); }} disabled={showFullAnswer} 
-                                                className="rounded-xl md:rounded-2xl bg-red-800 hover:bg-red-700 text-white shadow-lg active:translate-y-1 flex items-center justify-center transition-all disabled:opacity-30 text-sm md:text-3xl">
-                                                公布
-                                            </button>
-                                            <button onClick={() => { sound.playClick(); setSelectedRiddle(null); }} 
-                                                className="rounded-xl md:rounded-2xl bg-[#5c1a1a] hover:bg-red-900 text-white shadow-lg active:translate-y-1 flex items-center justify-center transition-all text-sm md:text-3xl">
-                                                離開
-                                            </button>
-                                            <button onClick={checkAnswer} 
-                                                className="rounded-xl md:rounded-2xl bg-yellow-500 hover:bg-yellow-400 text-red-950 font-black shadow-xl active:translate-y-1 border-b-4 md:border-b-6 border-yellow-700 transition-all flex items-center justify-center text-lg md:text-4xl">
-                                                {showFullAnswer ? '下一題' : '提交'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
+        const UI = {
+            menu: document.getElementById('menu-screen'),
+            libScreen: document.getElementById('lib-screen'),
+            canvas: document.getElementById('game-canvas'),
+            uiLayer: document.getElementById('game-ui'),
+            countdown: document.getElementById('countdown-overlay'),
+            result: document.getElementById('result-screen'),
+            feedback: document.getElementById('feedback-screen'),
+            ansWordsCont: document.getElementById('ans-words-container'),
+            timer: document.getElementById('timer-ui'),
+            progress: document.getElementById('progress-ui'),
+            speedLabel: document.getElementById('display-speed'),
+            wordList: document.getElementById('word-list'),
+            libCountText: document.getElementById('lib-count-text'),
+            pauseBtn: document.getElementById('btn-pause'),
+            stopBtn: document.getElementById('btn-stop'),
+            startBtn: document.getElementById('btn-start'),
+            verifyBtn: document.getElementById('btn-verify'),
+            restartBtn: document.getElementById('btn-restart'),
+            openLibBtn: document.getElementById('btn-open-lib'),
+            closeLibBtn: document.getElementById('btn-close-lib'),
+            addWordBtn: document.getElementById('btn-add-word'),
+            newWordInput: document.getElementById('input-new-word')
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        const INPUTS = {
+            gameTime: document.getElementById('input-game-time'),
+            totalBalloons: document.getElementById('input-total-balloons'),
+            speed: document.getElementById('input-speed-range'),
+            maxNum: document.getElementById('input-max-num'), // 修正：確保在此引用
+            advanced: document.getElementById('input-advanced-mode'),
+            wordCount: document.getElementById('input-target-word-count'),
+            ansSum: document.getElementById('ans-sum'),
+            ansWords: document.getElementById('ans-words')
+        };
+
+        let state = {
+            gameActive: false, isPaused: false, timeLeft: 0,
+            actualSum: 0, actualWords: [], spawnedCount: 0,
+            totalToSpawn: 0, targetWords: 0, currentWordsCount: 0,
+            timerIds: [], intervalIds: []
+        };
+
+        // --- 題庫管理 ---
+        function renderWordList() {
+            UI.wordList.innerHTML = '';
+            chineseLibrary.forEach((word, index) => {
+                const div = document.createElement('div');
+                div.className = 'relative bg-white border rounded-lg p-2 text-center font-bold h-10 flex items-center justify-center';
+                div.innerText = word;
+                const delBtn = document.createElement('button');
+                delBtn.className = 'absolute -top-1 -right-1 bg-red-400 text-white rounded-full w-4 h-4 text-[10px]';
+                delBtn.innerText = '✕';
+                delBtn.onclick = (e) => { chineseLibrary.splice(index, 1); renderWordList(); updateLibInfo(); };
+                div.appendChild(delBtn);
+                UI.wordList.appendChild(div);
+            });
+        }
+        function updateLibInfo() { UI.libCountText.innerText = `目前題庫：${chineseLibrary.length} 個國字`; }
+        UI.openLibBtn.onclick = () => { renderWordList(); UI.libScreen.classList.remove('hidden'); };
+        UI.closeLibBtn.onclick = () => UI.libScreen.classList.add('hidden');
+        UI.addWordBtn.onclick = () => {
+            const word = UI.newWordInput.value.trim();
+            if (word && word.length === 1 && !chineseLibrary.includes(word)) {
+                chineseLibrary.unshift(word); UI.newWordInput.value = ''; renderWordList(); updateLibInfo();
+            }
+        };
+
+        // --- 核心邏輯 ---
+        INPUTS.speed.oninput = (e) => UI.speedLabel.innerText = e.target.value;
+        INPUTS.advanced.onchange = (e) => document.getElementById('setting-word-count').classList.toggle('hidden', !e.target.checked);
+
+        function clearAll() {
+            state.timerIds.forEach(id => clearTimeout(id));
+            state.intervalIds.forEach(id => clearInterval(id));
+            state.timerIds = []; state.intervalIds = [];
+        }
+        function trackT(fn, d) { state.timerIds.push(setTimeout(fn, d)); }
+        function trackI(fn, d) { state.intervalIds.push(setInterval(fn, d)); }
+
+        UI.startBtn.onclick = () => { UI.menu.classList.add('hidden'); countdown(); };
+
+        function countdown() {
+            UI.countdown.classList.remove('hidden');
+            let c = 3; UI.countdown.innerText = c;
+            const itv = setInterval(() => {
+                c--;
+                if (c > 0) UI.countdown.innerText = c;
+                else { clearInterval(itv); UI.countdown.classList.add('hidden'); if (!state.gameActive) start(); }
+            }, 1000);
+        }
+
+        function start() {
+            state.gameActive = true; state.isPaused = false;
+            state.actualSum = 0; state.actualWords = []; state.spawnedCount = 0; state.currentWordsCount = 0;
+            state.totalToSpawn = parseInt(INPUTS.totalBalloons.value) || 15;
+            state.timeLeft = parseInt(INPUTS.gameTime.value) || 30;
+            state.targetWords = INPUTS.advanced.checked ? (parseInt(INPUTS.wordCount.value) || 3) : 0;
+            
+            UI.canvas.innerHTML = ''; UI.uiLayer.classList.remove('hidden'); updateUI();
+            trackI(() => { if (!state.isPaused && state.gameActive) { state.timeLeft--; updateUI(); if (state.timeLeft <= 0) finish(); } }, 1000);
+            const interval = (state.timeLeft * 0.9 * 1000) / state.totalToSpawn;
+            loop(interval);
+        }
+
+        function loop(iv) {
+            if (!state.gameActive) return;
+            trackT(() => {
+                if (!state.isPaused && state.gameActive && state.spawnedCount < state.totalToSpawn) spawn();
+                if (state.gameActive && state.spawnedCount < state.totalToSpawn) loop(iv);
+            }, iv);
+        }
+
+        function spawn() {
+            state.spawnedCount++; updateUI();
+            const wrap = document.createElement('div'); wrap.className = 'balloon-wrapper';
+            const wobble = document.createElement('div'); wobble.className = 'wobble-layer';
+            const b = document.createElement('div');
+            let t = Math.random() > 0.5 ? 'blue' : 'red';
+            
+            // 修正：使用預先定義的 INPUTS 變數，並加上防呆機制
+            const maxVal = INPUTS.maxNum ? (parseInt(INPUTS.maxNum.value) || 10) : 10;
+            const v = Math.floor(Math.random() * maxVal) + 1;
+
+            if (INPUTS.advanced.checked && state.currentWordsCount < state.targetWords) {
+                if (Math.random() < (state.targetWords - state.currentWordsCount) / (state.totalToSpawn - state.spawnedCount + 1)) t = 'yellow';
+            }
+            b.className = `balloon balloon-${t}`;
+            if (t === 'blue') { b.innerText = `+${v}`; state.actualSum += v; }
+            else if (t === 'red') { b.innerText = `-${v}`; state.actualSum -= v; }
+            else { 
+                const w = chineseLibrary.length > 0 ? chineseLibrary[Math.floor(Math.random() * chineseLibrary.length)] : "A";
+                b.innerText = w; state.actualWords.push(w); state.currentWordsCount++; 
+            }
+            b.onclick = () => { if (!state.isPaused && state.gameActive) { b.classList.add('popped'); setTimeout(() => { if (wrap.parentNode) UI.canvas.removeChild(wrap); check(); }, 200); } };
+            wrap.style.left = (Math.random() * (window.innerWidth - 80) + 10) + 'px';
+            wrap.style.animationDuration = INPUTS.speed.value + 's';
+            wobble.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            wobble.appendChild(b); wrap.appendChild(wobble); UI.canvas.appendChild(wrap);
+            wrap.onanimationend = () => { if (wrap.parentNode) UI.canvas.removeChild(wrap); check(); };
+        }
+
+        function check() { if (state.gameActive && state.spawnedCount >= state.totalToSpawn && UI.canvas.children.length === 0) finish(); }
+        function updateUI() { UI.timer.innerText = `時間: ${state.timeLeft}s`; UI.progress.innerText = `進度: ${state.spawnedCount} / ${state.totalToSpawn}`; }
+        UI.stopBtn.onclick = () => reset();
+        function reset() { state.gameActive = false; clearAll(); UI.canvas.innerHTML = ''; UI.uiLayer.classList.add('hidden'); UI.result.classList.add('hidden'); UI.feedback.classList.add('hidden'); UI.menu.classList.remove('hidden'); UI.pauseBtn.innerText = "暫停"; }
+        function finish() { state.gameActive = false; clearAll(); UI.uiLayer.classList.add('hidden'); UI.canvas.innerHTML = ''; INPUTS.ansSum.value = ''; INPUTS.ansWords.value = ''; UI.result.classList.remove('hidden'); UI.ansWordsCont.classList.toggle('hidden', !INPUTS.advanced.checked); }
+
+        UI.pauseBtn.onclick = function() {
+            if (!state.gameActive) return;
+            state.isPaused = !state.isPaused;
+            UI.canvas.classList.toggle('paused', state.isPaused);
+            this.innerText = state.isPaused ? "繼續" : "暫停";
+        };
+
+        UI.verifyBtn.onclick = () => {
+            const uS = parseInt(INPUTS.ansSum.value); const uW = INPUTS.ansWords.value.trim();
+            const sO = uS === state.actualSum; const wO = !INPUTS.advanced.checked || (uW === state.actualWords.join(''));
+            UI.result.classList.add('hidden'); UI.feedback.classList.remove('hidden');
+            document.getElementById('res-icon').innerText = (sO && wO) ? "🏆" : (sO || wO ? "🥈" : "😅");
+            document.getElementById('res-body').innerHTML = `<div class="flex justify-between"><span>正確總和:</span><span class="font-bold ${sO?'text-green-600':'text-red-600'}">${state.actualSum}</span></div>${INPUTS.advanced.checked?`<hr><div class="text-sm">正確國字: <span class="font-bold">${state.actualWords.join('')}</span></div>`:''}`;
+        };
+        UI.restartBtn.onclick = () => UI.feedback.classList.add('hidden'); UI.menu.classList.remove('hidden');
     </script>
 </body>
 </html>
