@@ -2,66 +2,92 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>數學橫式練習題產生器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數學橫式練習題產生器 - 職能治療師鄭凱文設計</title>
+    <meta name="description" content="專業的數學橫式運算練習題產生器，支援自動分頁、PDF 匯出、自定義位數與進借位設定。">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="數學橫式練習題產生器">
+    <meta property="og:description" content="自定義參數生成數學練習卷，支援高品質 PDF 匯出與自動分頁。">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & Babel for Browser JSX -->
+    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; overflow-x: hidden; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        @media screen {
-            .a4-sheet {
-                width: 210mm;
-                height: 297mm;
-                padding: 2cm 1.5cm;
-                margin: 2rem auto;
-                background: white;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-                border-radius: 4px;
-            }
+        .a4-sheet {
+            width: 210mm;
+            height: 297mm;
+            padding: 20mm 15mm;
+            background: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transform-origin: top center;
         }
-        
+
+        /* PDF 捕捉模式下強制取消縮放與陰影 */
+        .pdf-capture-mode .a4-sheet {
+            margin: 0 !important;
+            box-shadow: none !important;
+            transform: scale(1) !important;
+            left: 0 !important;
+        }
+
         @media print {
-            body { background: white !important; padding: 0 !important; margin: 0 !important; }
             .no-print { display: none !important; }
-            .a4-sheet {
-                width: 210mm;
-                height: 297mm;
-                padding: 2cm 1.5cm !important;
-                box-shadow: none !important;
-                margin: 0 !important;
-                page-break-after: always;
-                overflow: hidden;
-                display: block !important;
-            }
-            @page { size: A4; margin: 0; }
+        }
+
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4f46e5;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        /* 針對行動裝置優化按鈕點擊感 */
+        .active-scale:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-100 min-h-screen text-slate-800">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- 簡易圖標組件 (取代 Lucide) ---
         const Icon = ({ name, size = 20, className = "" }) => {
             const icons = {
                 settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>,
-                printer: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>,
+                filePdf: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2l6 6m-8 5h3a2 2 0 0 1 0 4h-3m0-4v4m-4-4h3m-3 2h2"/>,
                 play: <path d="m7 3 14 9-14 9V3z"/>,
                 back: <path d="m12 19-7-7 7-7M5 12h14"/>,
                 refresh: <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24M21 3v6h-6"/>,
                 check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/>,
-                x: <path d="m15 9-6 6M9 9l6 6M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                x: <path d="m15 9-6 6M9 9l6 6M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>,
+                loader: <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>,
+                zoomIn: <g><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></g>,
+                move: <g><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></g>
             };
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -70,8 +96,29 @@
             );
         };
 
+        const Footer = () => (
+            <div className="mt-8 mb-8 text-center no-print">
+                <p className="text-slate-400 font-medium text-sm md:text-base">
+                    設計：
+                    <a 
+                        href="https://www.facebook.com/mpotkevin" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-slate-500 hover:text-blue-600 transition-all font-bold underline decoration-dotted underline-offset-4"
+                    >
+                        職能治療師 - 鄭凱文
+                    </a>
+                </p>
+            </div>
+        );
+
         const App = () => {
             const [view, setView] = useState('setup');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [zoom, setZoom] = useState(0.8); 
+            const [offsetX, setOffsetX] = useState(0); 
+            
+            // 初始設定：雙位數、20pt 字體
             const [config, setConfig] = useState({
                 digitType: 'double', 
                 customMin: 10,
@@ -82,12 +129,19 @@
                 totalProblems: 20,
                 columns: 2,
                 fontSizeType: 'preset',
-                fontSizePreset: 'xl',
-                customFontSize: 24,
+                fontSizePreset: 'lg', // 20pt
+                customFontSize: 20,
                 numCopies: 1,
             });
 
             const [worksheets, setWorksheets] = useState([]);
+            const previewRef = useRef(null);
+
+            useEffect(() => {
+                if (window.innerWidth < 768) {
+                    setZoom(0.4);
+                }
+            }, []);
 
             const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -99,14 +153,40 @@
                     case 'mixed12': return { min: 1, max: 99 };
                     case 'mixed23': return { min: 10, max: 999 };
                     case 'custom': return { min: config.customMin, max: config.customMax };
-                    default: return { min: 1, max: 99 };
+                    default: return { min: 10, max: 99 };
                 }
             };
 
-            const getFontSizeStyle = () => {
-                if (config.fontSizeType === 'custom') return { fontSize: `${config.customFontSize}pt` };
-                const mapping = { 'sm': '12pt', 'base': '14pt', 'lg': '18pt', 'xl': '24pt', '2xl': '32pt' };
-                return { fontSize: mapping[config.fontSizePreset] || '18pt' };
+            const getFontSizeValue = () => {
+                if (config.fontSizeType === 'custom') return config.customFontSize;
+                const mapping = { 'sm': 14, 'base': 16, 'lg': 20, 'xl': 26, '2xl': 34 };
+                return mapping[config.fontSizePreset] || 20;
+            };
+
+            const getFontSizeStyle = () => ({
+                fontSize: `${getFontSizeValue()}pt`,
+                lineHeight: '1.4'
+            });
+
+            const getWorksheetDesc = () => {
+                const digitNames = { 'single': '個位數', 'double': '雙位數', 'triple': '三位數', 'mixed12': '個位雙位混合', 'mixed23': '雙位三位混合', 'custom': '自訂' };
+                const opNames = { 'addition': '加法', 'subtraction': '減法', 'mixed': '混合運算' };
+                return `${digitNames[config.digitType]}${opNames[config.operation]} / ${config.allowCarry ? '有進借位' : '無進借位'}`;
+            };
+
+            const calculatePagination = (problems) => {
+                const fontSize = getFontSizeValue();
+                const cols = config.columns;
+                const rowHeightMM = fontSize * 0.95; 
+                const availableHeightMM = 220; 
+                const rowsPerPage = Math.floor(availableHeightMM / rowHeightMM);
+                const problemsPerPage = rowsPerPage * cols;
+
+                const pages = [];
+                for (let i = 0; i < problems.length; i += problemsPerPage) {
+                    pages.push(problems.slice(i, i + problemsPerPage));
+                }
+                return pages;
             };
 
             const checkConstraint = (nums, op, allowCarry) => {
@@ -152,179 +232,266 @@
             };
 
             const handleGenerate = () => {
-                const sheets = Array.from({ length: config.numCopies }, (_, i) => ({
-                    id: i,
-                    problems: Array.from({ length: config.totalProblems }, generateProblem)
-                }));
+                const sheets = [];
+                for (let c = 0; c < config.numCopies; c++) {
+                    const allProblems = Array.from({ length: config.totalProblems }, generateProblem);
+                    const questionPages = calculatePagination(allProblems);
+                    const answerPages = [];
+                    for (let i = 0; i < allProblems.length; i += 32) {
+                        answerPages.push(allProblems.slice(i, i + 32).map((p, idx) => ({ ...p, originalIdx: i + idx + 1 })));
+                    }
+                    sheets.push({ id: c, questionPages, answerPages });
+                }
                 setWorksheets(sheets);
                 setView('preview');
                 window.scrollTo(0, 0);
             };
 
+            const handleExportPDF = async () => {
+                if (isGenerating) return;
+                setIsGenerating(true);
+                window.scrollTo(0, 0);
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const sheets = previewRef.current.querySelectorAll('.a4-sheet');
+                    document.body.classList.add('pdf-capture-mode');
+
+                    for (let i = 0; i < sheets.length; i++) {
+                        const canvas = await html2canvas(sheets[i], { scale: 2.5, useCORS: true, logging: false, backgroundColor: "#ffffff" });
+                        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+                        if (i > 0) pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+                    }
+
+                    document.body.classList.remove('pdf-capture-mode');
+                    window.open(pdf.output('bloburl'), '_blank');
+                } catch (error) {
+                    console.error("PDF Error:", error);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
             const SetupView = () => (
-                <div className="min-h-screen py-12 px-4">
-                    <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-white">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white text-center md:text-left">
+                <div className="w-full max-w-4xl mx-auto px-4 py-6 md:py-12 text-center md:text-left">
+                    <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-white">
+                        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 md:p-10 text-white">
                             <div className="flex flex-col md:flex-row items-center gap-4">
-                                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md"><Icon name="settings" size={32} /></div>
+                                <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md"><Icon name="settings" size={36} /></div>
                                 <div>
-                                    <h1 className="text-3xl font-black tracking-tight">數學練習題產生器</h1>
-                                    <p className="text-blue-100 font-medium">GitHub 託管版本 - 即開即印</p>
+                                    <h1 className="text-2xl md:text-4xl font-black tracking-tight mb-1">數學練習題產生器</h1>
+                                    <p className="text-indigo-100 font-medium text-sm md:text-lg">自動分頁與高品質 PDF 匯出</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                        
+                        <div className="p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                             <div className="space-y-6">
-                                <h2 className="text-lg font-bold text-slate-800 border-l-4 border-blue-500 pl-4">1. 數值與規則</h2>
+                                <h2 className="text-xl font-bold text-slate-800 border-l-4 border-indigo-500 pl-4">1. 數值核心設定</h2>
+                                
                                 <section>
-                                    <label className="block text-sm font-bold text-slate-500 mb-2">數字位數</label>
-                                    <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" value={config.digitType} onChange={e => setConfig({...config, digitType: e.target.value})}>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">數字位數範圍</label>
+                                    <select className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-colors text-lg" value={config.digitType} onChange={e => setConfig({...config, digitType: e.target.value})}>
                                         <option value="single">個位數 (1-9)</option>
                                         <option value="double">雙位數 (10-99)</option>
                                         <option value="triple">三位數 (100-999)</option>
-                                        <option value="mixed12">混合 (個位+雙位)</option>
-                                        <option value="mixed23">混合 (雙位+三位)</option>
+                                        <option value="mixed12">個位 + 雙位混合</option>
+                                        <option value="mixed23">雙位 + 三位混合</option>
                                         <option value="custom">自訂區間</option>
                                     </select>
                                     {config.digitType === 'custom' && (
-                                        <div className="flex gap-2 mt-3">
-                                            <input type="number" className="w-1/2 p-3 border rounded-xl" value={config.customMin} onChange={e => setConfig({...config, customMin: parseInt(e.target.value)})}/>
-                                            <input type="number" className="w-1/2 p-3 border rounded-xl" value={config.customMax} onChange={e => setConfig({...config, customMax: parseInt(e.target.value)})}/>
+                                        <div className="flex gap-2 mt-4 animate-in fade-in slide-in-from-top-1">
+                                            <input type="number" className="w-1/2 p-4 border-2 rounded-2xl" value={config.customMin} onChange={e => setConfig({...config, customMin: parseInt(e.target.value)})}/>
+                                            <input type="number" className="w-1/2 p-4 border-2 rounded-2xl" value={config.customMax} onChange={e => setConfig({...config, customMax: parseInt(e.target.value)})}/>
                                         </div>
                                     )}
                                 </section>
+
                                 <section>
                                     <label className="block text-sm font-bold text-slate-500 mb-2">運算符號</label>
-                                    <div className="flex gap-2">
+                                    <div className="grid grid-cols-3 gap-2">
                                         {['addition', 'subtraction', 'mixed'].map(op => (
-                                            <button key={op} onClick={() => setConfig({...config, operation: op})} className={`flex-1 p-3 rounded-xl border-2 text-sm font-bold transition-all ${config.operation === op ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}>
+                                            <button key={op} onClick={() => setConfig({...config, operation: op})} className={`p-4 rounded-2xl border-2 font-bold transition-all active-scale ${config.operation === op ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200'}`}>
                                                 {op === 'addition' ? '加法' : op === 'subtraction' ? '減法' : '混合'}
                                             </button>
                                         ))}
                                     </div>
                                 </section>
+
                                 <section>
-                                    <label className="block text-sm font-bold text-slate-500 mb-2">進位 / 借位</label>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">進位 / 借位限制</label>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => setConfig({...config, allowCarry: true})} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${config.allowCarry ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="check" size={18}/> 允許</button>
-                                        <button onClick={() => setConfig({...config, allowCarry: false})} className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${!config.allowCarry ? 'bg-orange-50 border-orange-500 text-orange-700 font-bold' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="x" size={18}/> 禁止</button>
+                                        <button onClick={() => setConfig({...config, allowCarry: true})} className={`flex items-center justify-center gap-2 p-4 rounded-2xl border-2 font-bold transition-all active-scale ${config.allowCarry ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="check" size={20}/> 允許</button>
+                                        <button onClick={() => setConfig({...config, allowCarry: false})} className={`flex items-center justify-center gap-2 p-4 rounded-2xl border-2 font-bold transition-all active-scale ${!config.allowCarry ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-400 border-slate-100'}`}><Icon name="x" size={20}/> 禁止</button>
                                     </div>
                                 </section>
                             </div>
+
                             <div className="space-y-6">
-                                <h2 className="text-lg font-bold text-slate-800 border-l-4 border-indigo-500 pl-4">2. 佈局與外觀</h2>
+                                <h2 className="text-xl font-bold text-slate-800 border-l-4 border-blue-500 pl-4">2. 考卷佈局設定</h2>
+                                
                                 <section>
                                     <label className="block text-sm font-bold text-slate-500 mb-2 flex justify-between">數字連算數量 <span>{config.numTerms} 個數</span></label>
-                                    <input type="range" min="2" max="5" className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" value={config.numTerms} onChange={e => setConfig({...config, numTerms: parseInt(e.target.value)})}/>
+                                    <input type="range" min="2" max="5" className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" value={config.numTerms} onChange={e => setConfig({...config, numTerms: parseInt(e.target.value)})}/>
                                 </section>
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <section>
                                         <label className="block text-sm font-bold text-slate-500 mb-2">總題目數</label>
-                                        <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.totalProblems} onChange={e => setConfig({...config, totalProblems: parseInt(e.target.value)})}/>
+                                        <input type="number" className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 text-lg" value={config.totalProblems} onChange={e => setConfig({...config, totalProblems: parseInt(e.target.value)})}/>
                                     </section>
                                     <section>
                                         <label className="block text-sm font-bold text-slate-500 mb-2">每列欄數</label>
-                                        <input type="number" min="1" max="3" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.columns} onChange={e => setConfig({...config, columns: parseInt(e.target.value)})}/>
+                                        <input type="number" min="1" max="3" className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 text-lg" value={config.columns} onChange={e => setConfig({...config, columns: parseInt(e.target.value)})}/>
                                     </section>
                                 </div>
+
                                 <section>
                                     <div className="flex justify-between items-center mb-2">
                                         <label className="text-sm font-bold text-slate-500">字體大小設定</label>
-                                        <div className="flex bg-slate-100 p-1 rounded-lg">
-                                            <button onClick={() => setConfig({...config, fontSizeType: 'preset'})} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'preset' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>預設</button>
-                                            <button onClick={() => setConfig({...config, fontSizeType: 'custom'})} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${config.fontSizeType === 'custom' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>自訂</button>
+                                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                                            {['preset', 'custom'].map(t => (
+                                                <button key={t} onClick={() => setConfig({...config, fontSizeType: t})} className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${config.fontSizeType === t ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>
+                                                    {t === 'preset' ? '預設' : '自訂'}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                     {config.fontSizeType === 'preset' ? (
-                                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.fontSizePreset} onChange={e => setConfig({...config, fontSizePreset: e.target.value})}>
-                                            <option value="sm">小 (12pt)</option>
-                                            <option value="base">中 (14pt)</option>
-                                            <option value="lg">大 (18pt)</option>
-                                            <option value="xl">特大 (24pt)</option>
-                                            <option value="2xl">巨大 (32pt)</option>
+                                        <select className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-lg" value={config.fontSizePreset} onChange={e => setConfig({...config, fontSizePreset: e.target.value})}>
+                                            <option value="sm">小 (14pt)</option>
+                                            <option value="base">中 (16pt)</option>
+                                            <option value="lg">大 (20pt)</option>
+                                            <option value="xl">特大 (26pt)</option>
+                                            <option value="2xl">巨大 (34pt)</option>
                                         </select>
                                     ) : (
-                                        <div className="flex items-center gap-3"><input type="number" className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.customFontSize} onChange={e => setConfig({...config, customFontSize: parseInt(e.target.value) || 12})}/><span className="text-slate-400 font-bold">pt</span></div>
+                                        <div className="flex items-center gap-3"><input type="number" className="flex-1 p-4 border-2 rounded-2xl text-lg" value={config.customFontSize} onChange={e => setConfig({...config, customFontSize: parseInt(e.target.value) || 12})}/><span className="text-slate-400 font-bold text-xl">pt</span></div>
                                     )}
                                 </section>
+
                                 <section>
                                     <label className="block text-sm font-bold text-slate-500 mb-2">列印份數</label>
-                                    <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={config.numCopies} onChange={e => setConfig({...config, numCopies: parseInt(e.target.value)})}/>
+                                    <input type="number" className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none text-lg" value={config.numCopies} onChange={e => setConfig({...config, numCopies: parseInt(e.target.value)})}/>
                                 </section>
                             </div>
                         </div>
-                        <div className="bg-slate-50 p-8 flex flex-col items-center border-t">
-                            <button onClick={handleGenerate} className="w-full md:w-80 flex items-center justify-center gap-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all transform hover:-translate-y-1">
-                                <Icon name="play" size={24}/> <span className="text-lg">生成題目預覽</span>
+
+                        <div className="bg-slate-50 p-8 md:p-10 flex flex-col items-center border-t border-slate-100">
+                            <button onClick={handleGenerate} className="w-full md:w-80 group flex items-center justify-center gap-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 px-10 rounded-3xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 active-scale">
+                                <Icon name="play" size={28}/> <span className="text-xl">生成題目預覽</span>
                             </button>
                         </div>
                     </div>
+                    <Footer />
                 </div>
             );
 
             const PreviewView = () => (
-                <div className="min-h-screen bg-slate-800 flex flex-col items-center py-10 no-scrollbar">
-                    <div className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md h-16 shadow-lg z-50 px-6 flex items-center justify-between no-print">
-                        <button onClick={() => setView('setup')} className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-bold transition-all px-4 py-2 rounded-lg hover:bg-slate-100">
-                            <Icon name="back" size={20}/> 返回修改
-                        </button>
-                        <div className="flex items-center gap-4">
-                            <button onClick={handleGenerate} className="p-2 text-slate-500 hover:text-indigo-600 transition-all" title="重新生成"><Icon name="refresh" size={22}/></button>
-                            <button onClick={() => window.print()} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-black shadow-xl transition-all">
-                                <Icon name="printer" size={20}/> 列印 PDF
+                <div className="min-h-screen bg-slate-900 flex flex-col items-center py-12 md:py-20 relative overflow-x-hidden no-scrollbar">
+                    {/* Floating Header Toolbar */}
+                    <div className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-lg h-auto shadow-2xl z-50 px-4 py-3 md:px-8 flex flex-col gap-4 no-print border-b border-slate-200">
+                        <div className="flex items-center justify-between w-full">
+                            <button onClick={() => setView('setup')} className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-bold transition-all px-3 py-2 rounded-xl hover:bg-slate-100 active-scale">
+                                <Icon name="back" size={20}/> <span className="hidden sm:inline">返回修改參數</span><span className="sm:hidden text-sm">返回</span>
                             </button>
+                            
+                            <div className="flex items-center gap-2 md:gap-4">
+                                <button onClick={handleGenerate} className="p-3 text-slate-400 hover:text-indigo-600 transition-all rounded-xl hover:bg-slate-100" title="重新隨機生成"><Icon name="refresh" size={24}/></button>
+                                <button onClick={handleExportPDF} disabled={isGenerating} className={`flex items-center gap-2 ${isGenerating ? 'bg-slate-400' : 'bg-rose-600 hover:bg-rose-700'} text-white px-5 py-2.5 rounded-2xl font-black shadow-lg transition-all active-scale`}>
+                                    {isGenerating ? <Icon name="loader" size={20} className="animate-spin" /> : <Icon name="filePdf" size={24}/>}
+                                    <span className="text-base">{isGenerating ? '生成中...' : '下載 PDF'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* UX：縮放與位移控制桿 */}
+                        <div className="flex flex-wrap items-center gap-6 px-2 pb-1 border-t border-slate-100 pt-2">
+                            <div className="flex-1 flex items-center gap-3">
+                                <Icon name="zoomIn" size={18} className="text-indigo-500" />
+                                <span className="text-xs font-bold text-slate-400 whitespace-nowrap min-w-[3rem]">縮放: {Math.round(zoom * 100)}%</span>
+                                <input type="range" min="0.3" max="1.5" step="0.05" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 slider-thumb" />
+                            </div>
+                            <div className="flex-1 flex items-center gap-3">
+                                <Icon name="move" size={18} className="text-indigo-500" />
+                                <span className="text-xs font-bold text-slate-400 whitespace-nowrap min-w-[3rem]">左右位移: {offsetX}px</span>
+                                <input type="range" min="-300" max="300" step="5" value={offsetX} onChange={e => setOffsetX(parseInt(e.target.value))} className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 slider-thumb" />
+                            </div>
                         </div>
                     </div>
-                    <div className="mt-12 space-y-0 flex flex-col items-center">
-                        {worksheets.map(sheet => (
+
+                    <div ref={previewRef} className="mt-32 space-y-12 flex flex-col items-center pb-20">
+                        {worksheets.map((sheet, sIdx) => (
                             <React.Fragment key={sheet.id}>
-                                <div className="a4-sheet relative">
-                                    <div className="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-10">
-                                        <div>
-                                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">數學橫式運算練習卷</h2>
-                                            <div className="text-xs font-bold text-slate-500 mt-1">卷號：#{String(sheet.id + 1).padStart(3, '0')} | {config.allowCarry ? '允許進/借位' : '無進/借位'}</div>
+                                {sheet.questionPages.map((pageProblems, pIdx) => (
+                                    <div key={`q-${sIdx}-${pIdx}`} className="a4-sheet" style={{ transform: `scale(${zoom})`, left: `${offsetX}px`, marginBottom: `${(297 * zoom) - 297 + 40}mm` }}>
+                                        <div className="flex justify-between items-start border-b-4 border-indigo-900 pb-6 mb-12 shrink-0">
+                                            <div className="flex-1">
+                                                <h2 className="text-4xl font-black text-indigo-900 tracking-tighter mb-4">數學橫式運算練習卷</h2>
+                                                <div className="text-2xl font-bold text-black uppercase tracking-widest mt-2">{getWorksheetDesc()} {sheet.questionPages.length > 1 && `(第 ${pIdx + 1} 頁)`}</div>
+                                            </div>
+                                            <div className="flex flex-col gap-3 shrink-0">
+                                                <div className="flex items-center border-b-2 border-slate-300 w-48 md:w-56 pb-2"><span className="text-lg font-bold text-slate-800">姓名:</span></div>
+                                                <div className="flex items-center border-b-2 border-slate-300 w-48 md:w-56 pb-2"><span className="text-lg font-bold text-slate-800">日期:</span></div>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center border-b-2 border-slate-200 w-48 pb-1"><span className="text-sm font-bold">姓名:</span></div>
-                                            <div className="flex items-center border-b-2 border-slate-200 w-48 pb-1"><span className="text-sm font-bold">日期:</span></div>
+                                        <div className="grid gap-x-10 gap-y-12 flex-1 items-start content-start" style={{ gridTemplateColumns: `repeat(${config.columns}, 1fr)`, ...getFontSizeStyle() }}>
+                                            {pageProblems.map((prob, idx) => {
+                                                const globalIdx = sheet.questionPages.slice(0, pIdx).reduce((acc, p) => acc + p.length, 0) + idx + 1;
+                                                return (
+                                                    <div key={idx} className="flex items-start font-mono h-full">
+                                                        <span className="text-black font-bold text-[0.7em] w-[2.4em] mt-[0.3em] mr-1 font-sans shrink-0">{globalIdx}.</span>
+                                                        <div className="flex flex-wrap items-center gap-y-2 gap-x-2 leading-tight">
+                                                            {prob.nums.map((n, i) => (
+                                                                <React.Fragment key={i}>
+                                                                    <span className="text-slate-900 font-bold">{n}</span>
+                                                                    {i < prob.nums.length - 1 && <span className="text-indigo-600 font-black">{prob.op === 'addition' ? '+' : '-'}</span>}
+                                                                </React.Fragment>
+                                                            ))}
+                                                            <span className="text-slate-900 font-bold">=</span>
+                                                            <div className="min-w-[4.5rem] flex-1 inline-block"></div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                    <div className="grid gap-x-12 gap-y-12" style={{ gridTemplateColumns: `repeat(${config.columns}, 1fr)`, ...getFontSizeStyle() }}>
-                                        {sheet.problems.map((prob, pIdx) => (
-                                            <div key={pIdx} className="flex items-baseline font-mono overflow-hidden">
-                                                <span className="text-slate-300 text-xs w-6 mr-1 italic font-sans shrink-0">{pIdx + 1}.</span>
-                                                <div className="flex-1 flex items-center gap-2 whitespace-nowrap">
-                                                    {prob.nums.map((n, i) => (
-                                                        <React.Fragment key={i}>
-                                                            <span className="text-slate-900 font-bold">{n}</span>
-                                                            {i < prob.nums.length - 1 && <span className="text-indigo-600 font-black">{prob.op === 'addition' ? '+' : '-'}</span>}
-                                                        </React.Fragment>
-                                                    ))}
-                                                    <span className="text-slate-900 font-bold">=</span>
-                                                    <div className="flex-1 min-w-[2rem] border-b-2 border-slate-300 h-[1em] mb-1"></div>
+                                ))}
+
+                                {sheet.answerPages.map((pageAnswers, pIdx) => (
+                                    <div key={`a-${sIdx}-${pIdx}`} className="a4-sheet" style={{ transform: `scale(${zoom})`, left: `${offsetX}px`, marginBottom: `${(297 * zoom) - 297 + 40}mm` }}>
+                                        <div className="flex justify-between items-center border-b-2 border-indigo-100 pb-5 mb-10 shrink-0">
+                                            <div>
+                                                <h2 className="text-3xl font-black text-indigo-900 italic mb-2">標準解答卷</h2>
+                                                <div className="text-2xl font-bold text-black">{getWorksheetDesc()} {sheet.answerPages.length > 1 && `(第 ${pIdx + 1} 頁)`}</div>
+                                            </div>
+                                            <div className="px-6 py-2 bg-indigo-50 rounded-full text-sm font-bold text-indigo-600 border border-indigo-100 uppercase font-mono tracking-widest">Answer Key</div>
+                                        </div>
+                                        <div className="grid gap-6 flex-1 items-start content-start" style={{ gridTemplateColumns: `repeat(${Math.max(4, config.columns + 2)}, 1fr)` }}>
+                                            {pageAnswers.map((prob, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-slate-50 px-4 py-4 rounded-2xl border border-slate-100 shadow-sm">
+                                                    <span className="text-black font-mono text-xl font-black italic shrink-0">{prob.originalIdx}.</span>
+                                                    <span className="font-mono font-black text-indigo-700 text-3xl tracking-tighter">{prob.result}</span>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono">- 第 1 頁 (題目) -</div>
-                                </div>
-                                <div className="a4-sheet relative page-break-before">
-                                    <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3 mb-8">
-                                        <h2 className="text-lg font-black text-slate-400">標準解答卷 (#{String(sheet.id + 1).padStart(3, '0')})</h2>
-                                    </div>
-                                    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(4, config.columns + 2)}, 1fr)` }}>
-                                        {sheet.problems.map((prob, pIdx) => (
-                                            <div key={pIdx} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border border-slate-100">
-                                                <span className="text-slate-400 text-xs font-black">{pIdx + 1}</span>
-                                                <span className="font-mono font-black text-indigo-600 text-lg">{prob.result}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="absolute bottom-[1.5cm] left-0 right-0 text-center text-[10pt] text-slate-300 font-mono">- 第 2 頁 (解答) -</div>
-                                </div>
+                                ))}
                             </React.Fragment>
                         ))}
                     </div>
+                    <Footer />
+
+                    {isGenerating && (
+                        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-white p-10">
+                            <Icon name="loader" size={80} className="animate-spin mb-8 text-indigo-400" />
+                            <h3 className="text-3xl font-black tracking-widest mb-4 uppercase text-center">Rendering PDF...</h3>
+                            <p className="text-slate-400 font-medium text-center max-w-sm text-lg leading-relaxed">我們正在將頁面轉換為超高解析度影像，這可能需要幾秒鐘的時間。</p>
+                        </div>
+                    )}
                 </div>
             );
 
