@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>氣球心算注意力挑戰 V15</title>
+    <title>氣球心算注意力挑戰 V17</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700&display=swap');
@@ -18,7 +18,7 @@
             touch-action: none;
         }
 
-        /* 氣球容器 - 顯著加大尺寸 */
+        /* 氣球容器 - 大尺寸 */
         .balloon-wrapper {
             position: absolute;
             bottom: -200px;
@@ -30,7 +30,7 @@
             animation: wobble 3s ease-in-out infinite;
         }
 
-        /* 氣球樣式優化 - 適合長輩觀看 */
+        /* 氣球樣式 - 長輩友善加強版 */
         .balloon {
             width: 100px;
             height: 130px;
@@ -40,16 +40,16 @@
             justify-content: center;
             color: white;
             font-weight: 800;
-            font-size: 2rem; /* 數字極大化 */
-            text-shadow: 2px 2px 0px rgba(0,0,0,0.3), -1px -1px 0px rgba(0,0,0,0.3), 1px -1px 0px rgba(0,0,0,0.3), -1px 1px 0px rgba(0,0,0,0.3);
+            font-size: 2.2rem;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
             box-shadow: inset -10px -10px 20px rgba(0,0,0,0.15), 5px 10px 20px rgba(0,0,0,0.2);
             cursor: pointer;
             position: relative;
-            border: 2px solid rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
         }
 
         @media (min-width: 768px) {
-            .balloon { width: 120px; height: 160px; font-size: 2.5rem; }
+            .balloon { width: 130px; height: 170px; font-size: 2.8rem; }
         }
 
         .balloon::after {
@@ -94,18 +94,42 @@
             pointer-events: none;
         }
 
-        /* UI 層級強化 */
-        #game-ui {
-            z-index: 9999; /* 確保在最頂層 */
-            background: rgba(0, 0, 0, 0.05); /* 輕微背景色提升辨識度 */
+        /* 控制列與切換按鈕層級 */
+        #ui-container {
+            z-index: 10000;
         }
-        #countdown-overlay {
-            z-index: 1000;
+        #toggle-ui-btn {
+            z-index: 10001;
+        }
+
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         .modal-bg {
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(15px);
+        }
+
+        /* 輸入框統一格式 */
+        .input-standard {
+            width: 100%;
+            border-width: 2px;
+            border-color: #f3f4f6;
+            border-radius: 1rem;
+            padding: 0.75rem;
+            margin-top: 0.25rem;
+            outline: none;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+        .input-standard:focus {
+            border-color: #60a5fa;
+            background-color: #f9fafb;
         }
     </style>
 </head>
@@ -114,44 +138,48 @@
     <div id="app-root" class="relative w-full h-full">
         
         <!-- 主選單畫面 -->
-        <div id="menu-screen" class="absolute inset-0 flex items-center justify-center z-[10000] p-4 bg-sky-50">
+        <div id="menu-screen" class="absolute inset-0 flex items-center justify-center z-[11000] p-4 bg-sky-50/80">
             <div class="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center border-4 border-white flex flex-col max-h-full overflow-y-auto">
                 <h1 class="text-3xl md:text-4xl font-bold text-blue-600 mb-2">氣球心算注意力挑戰</h1>
-                <p id="lib-count-text" class="text-sm text-gray-500 mb-8 font-bold">目前題庫：132 個國字</p>
+                <p id="lib-count-text" class="text-sm text-gray-400 mb-6 font-bold">目前題庫：132 個國字</p>
                 
-                <div class="space-y-6 text-left mb-8">
+                <div class="space-y-4 text-left mb-8">
+                    <!-- 第一排：時間與總數 -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-400">關卡時間 (秒)</label>
-                            <input type="number" id="input-game-time" value="30" class="w-full border-2 border-gray-100 rounded-2xl p-3 mt-1 outline-none focus:border-blue-400 text-lg font-bold">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">關卡時間 (秒)</label>
+                            <input type="number" id="input-game-time" value="30" class="input-standard">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-400">氣球總數</label>
-                            <input type="number" id="input-total-balloons" value="15" class="w-full border-2 border-gray-100 rounded-2xl p-3 mt-1 outline-none focus:border-blue-400 text-lg font-bold">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">氣球總數</label>
+                            <input type="number" id="input-total-balloons" value="15" class="input-standard">
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-bold text-gray-400">飄浮速度: <span id="display-speed" class="text-blue-500">8</span>秒</label>
-                        <input type="range" id="input-speed-range" min="2" max="15" step="1" value="8" class="w-full h-3 bg-blue-100 rounded-lg appearance-none mt-2">
+                    <!-- 第二排：速度與範圍 -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">飄浮速度 (秒)</label>
+                            <input type="number" id="input-speed" value="8" min="1" step="1" class="input-standard">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">數字範圍 (1~X)</label>
+                            <input type="number" id="input-max-num" value="10" min="1" class="input-standard">
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-bold text-gray-400">數字範圍 (1 ~ X)</label>
-                        <input type="number" id="input-max-num" value="10" min="1" class="w-full border-2 border-gray-100 rounded-2xl p-3 mt-1 outline-none focus:border-blue-400 text-lg font-bold">
-                    </div>
-
-                    <div class="p-4 bg-orange-50 rounded-3xl border-2 border-orange-100">
+                    <!-- 第三排：進階模式 -->
+                    <div class="p-5 bg-orange-50 rounded-3xl border-2 border-orange-100 mt-2">
                         <label class="flex items-center space-x-3 cursor-pointer">
                             <input type="checkbox" id="input-advanced-mode" class="w-6 h-6 text-orange-500 rounded-lg">
                             <span class="text-lg font-bold text-orange-600">進階模式 (記憶國字氣球)</span>
                         </label>
                         <div id="setting-word-count" class="hidden flex items-center justify-between mt-4 pl-9">
                             <div class="flex items-center space-x-2">
-                                <span class="font-bold text-gray-600">字數:</span>
-                                <input type="number" id="input-target-word-count" value="3" class="w-16 border-2 border-orange-200 rounded-xl p-1 text-center font-bold">
+                                <span class="font-bold text-gray-600">記憶字數:</span>
+                                <input type="number" id="input-target-word-count" value="3" class="w-20 border-2 border-orange-200 rounded-xl p-2 text-center font-bold outline-none focus:border-orange-400">
                             </div>
-                            <button id="btn-open-lib" class="bg-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold text-sm">編輯題庫</button>
+                            <button id="btn-open-lib" class="bg-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-300 transition-colors">編輯題庫</button>
                         </div>
                     </div>
                 </div>
@@ -169,7 +197,7 @@
         </div>
 
         <!-- 題庫管理 -->
-        <div id="lib-screen" class="hidden absolute inset-0 flex items-center justify-center z-[10001] modal-bg p-4">
+        <div id="lib-screen" class="hidden absolute inset-0 flex items-center justify-center z-[12000] modal-bg p-4">
             <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] border-2 border-gray-50">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800">國字題庫管理</h2>
@@ -186,31 +214,39 @@
         <!-- 遊戲畫布 -->
         <div id="game-canvas" class="w-full h-full relative overflow-hidden"></div>
 
-        <!-- 操作 UI - 平板優化版 -->
-        <div id="game-ui" class="hidden absolute top-0 left-0 w-full p-6 flex justify-between items-start pointer-events-none">
-            <div class="space-y-3 pointer-events-auto">
-                <div id="timer-ui" class="bg-white/95 px-5 py-3 rounded-2xl font-bold text-blue-700 shadow-xl border-2 border-blue-200 text-lg">時間: --s</div>
-                <div id="progress-ui" class="bg-white/95 px-5 py-3 rounded-2xl font-bold text-purple-700 shadow-xl border-2 border-purple-200 text-lg">進度: 0 / 0</div>
-            </div>
-            <div class="flex space-x-4 pointer-events-auto">
-                <button id="btn-pause" class="bg-yellow-500 text-white px-8 py-4 rounded-2xl font-bold shadow-2xl text-lg active:scale-90 transition-transform border-b-4 border-yellow-700">暫停</button>
-                <button id="btn-stop" class="bg-red-500 text-white px-8 py-4 rounded-2xl font-bold shadow-2xl text-lg active:scale-90 transition-transform border-b-4 border-red-700">結束</button>
+        <!-- 遊戲操作 UI -->
+        <div id="ui-container" class="hidden absolute top-0 left-0 w-full p-2 md:p-4 flex flex-col items-center pointer-events-none transition-all duration-300">
+            <div id="game-ui-bar" class="w-full max-w-4xl glass-morphism rounded-2xl px-4 py-2 flex items-center justify-between pointer-events-auto shadow-lg">
+                <div class="flex items-center space-x-4">
+                    <div id="timer-ui" class="font-bold text-blue-700 text-sm md:text-lg whitespace-nowrap">時間: --s</div>
+                    <div id="progress-ui" class="font-bold text-purple-700 text-sm md:text-lg whitespace-nowrap">進度: 0/0</div>
+                </div>
+                <div class="flex items-center space-x-2 md:space-x-4">
+                    <button id="btn-pause" class="bg-yellow-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl font-bold text-sm md:text-base shadow-md active:scale-95 transition-transform">暫停</button>
+                    <button id="btn-stop" class="bg-red-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl font-bold text-sm md:text-base shadow-md active:scale-95 transition-transform">結束</button>
+                </div>
             </div>
         </div>
 
-        <div id="countdown-overlay" class="hidden absolute inset-0 flex items-center justify-center text-[15rem] font-bold text-blue-600 drop-shadow-2xl pointer-events-none"></div>
+        <!-- 隱藏/顯示 UI 的切換按鈕 -->
+        <button id="toggle-ui-btn" class="hidden absolute top-3 right-3 md:top-5 md:right-5 bg-white/80 hover:bg-white p-2 rounded-full shadow-md text-gray-600 transition-all active:scale-90">
+            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="eye-off-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+
+        <div id="countdown-overlay" class="hidden absolute inset-0 flex items-center justify-center text-[12rem] font-bold text-blue-600 drop-shadow-2xl pointer-events-none z-[9000]"></div>
 
         <!-- 結算畫面 -->
-        <div id="result-screen" class="hidden absolute inset-0 flex items-center justify-center z-[5000] modal-bg p-4">
-            <div class="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-blue-50">
+        <div id="result-screen" class="hidden absolute inset-0 flex items-center justify-center z-[13000] modal-bg p-4">
+            <div class="bg-white p-8 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-blue-50">
                 <h2 class="text-3xl font-bold mb-8 text-gray-800">挑戰結束！請填寫</h2>
                 <div class="space-y-6 text-left">
                     <div>
-                        <label class="block text-lg font-bold text-gray-500 mb-2">數字總和</label>
+                        <label class="block text-lg font-bold text-gray-500 mb-2 text-center">數字總和</label>
                         <input type="number" id="ans-sum" placeholder="請填寫數字" class="w-full border-2 border-blue-100 rounded-2xl p-5 text-3xl font-bold text-center outline-none focus:border-blue-500">
                     </div>
                     <div id="ans-words-container" class="hidden">
-                        <label class="block text-lg font-bold text-gray-500 mb-2">國字順序</label>
+                        <label class="block text-lg font-bold text-gray-500 mb-2 text-center">國字順序</label>
                         <input type="text" id="ans-words" placeholder="請依序填寫" class="w-full border-2 border-orange-100 rounded-2xl p-5 text-3xl font-bold text-center outline-none focus:border-orange-500">
                     </div>
                 </div>
@@ -219,8 +255,8 @@
         </div>
 
         <!-- 結果反饋 -->
-        <div id="feedback-screen" class="hidden absolute inset-0 flex items-center justify-center z-[6000] modal-bg p-4">
-            <div class="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-gray-50">
+        <div id="feedback-screen" class="hidden absolute inset-0 flex items-center justify-center z-[14000] modal-bg p-4">
+            <div class="bg-white p-8 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-gray-50">
                 <div id="res-icon" class="text-[8rem] mb-6">🎉</div>
                 <h2 id="res-title" class="font-bold text-3xl mb-6">挑戰結果</h2>
                 <div id="res-body" class="text-left bg-gray-50 p-6 rounded-3xl mb-8 space-y-4 border-2 border-gray-100 text-xl"></div>
@@ -230,21 +266,23 @@
     </div>
 
     <script>
-        // --- 題庫與狀態 ---
         let chineseLibrary = ["天", "地", "人", "水", "火", "木", "金", "山", "海", "雲", "風", "月", "日", "光", "星", "花", "鳥", "石", "川", "龍", "虎", "雨", "電", "心", "夢", "森", "林", "湖", "泉", "冰", "雪", "霧", "露", "霜", "霄", "霆", "震", "虹", "霓", "霞", "魚", "蝦", "蟹", "蛇", "鹿", "象", "馬", "牛", "羊", "雞", "犬", "豕", "貓", "鼠", "兔", "東", "西", "南", "北", "上", "下", "左", "右", "中", "紅", "橙", "黃", "綠", "藍", "靛", "紫", "黑", "白", "青", "灰", "褐", "仁", "義", "禮", "智", "信", "忠", "孝", "愛", "和", "平", "誠", "勇", "春", "夏", "秋", "冬", "晨", "昏", "晝", "夜", "銀", "銅", "鐵", "錫", "珠", "寶", "玉", "翠", "大", "小", "長", "短", "高", "低", "寬", "窄", "文", "武", "詩", "書", "琴", "棋", "畫", "劍", "盾", "神", "仙", "鬼", "佛", "聖", "賢", "酒", "茶", "飯", "菜"];
 
         const UI = {
             menu: document.getElementById('menu-screen'),
             libScreen: document.getElementById('lib-screen'),
             canvas: document.getElementById('game-canvas'),
-            uiLayer: document.getElementById('game-ui'),
+            uiContainer: document.getElementById('ui-container'),
+            uiBar: document.getElementById('game-ui-bar'),
+            toggleBtn: document.getElementById('toggle-ui-btn'),
+            eyeIcon: document.getElementById('eye-icon'),
+            eyeOffIcon: document.getElementById('eye-off-icon'),
             countdown: document.getElementById('countdown-overlay'),
             result: document.getElementById('result-screen'),
             feedback: document.getElementById('feedback-screen'),
             ansWordsCont: document.getElementById('ans-words-container'),
             timer: document.getElementById('timer-ui'),
             progress: document.getElementById('progress-ui'),
-            speedLabel: document.getElementById('display-speed'),
             wordList: document.getElementById('word-list'),
             libCountText: document.getElementById('lib-count-text'),
             pauseBtn: document.getElementById('btn-pause'),
@@ -261,7 +299,7 @@
         const INPUTS = {
             gameTime: document.getElementById('input-game-time'),
             totalBalloons: document.getElementById('input-total-balloons'),
-            speed: document.getElementById('input-speed-range'),
+            speed: document.getElementById('input-speed'),
             maxNum: document.getElementById('input-max-num'),
             advanced: document.getElementById('input-advanced-mode'),
             wordCount: document.getElementById('input-target-word-count'),
@@ -270,13 +308,27 @@
         };
 
         let state = {
-            gameActive: false, isPaused: false, timeLeft: 0,
-            actualSum: 0, actualWords: [], spawnedCount: 0,
+            gameActive: false, isPaused: false, uiVisible: true,
+            timeLeft: 0, actualSum: 0, actualWords: [], spawnedCount: 0,
             totalToSpawn: 0, targetWords: 0, currentWordsCount: 0,
             timerIds: [], intervalIds: []
         };
 
-        // --- 題庫管理 ---
+        UI.toggleBtn.onclick = () => {
+            state.uiVisible = !state.uiVisible;
+            if (state.uiVisible) {
+                UI.uiContainer.style.transform = 'translateY(0)';
+                UI.uiContainer.style.opacity = '1';
+                UI.eyeIcon.classList.remove('hidden');
+                UI.eyeOffIcon.classList.add('hidden');
+            } else {
+                UI.uiContainer.style.transform = 'translateY(-100%)';
+                UI.uiContainer.style.opacity = '0';
+                UI.eyeIcon.classList.add('hidden');
+                UI.eyeOffIcon.classList.remove('hidden');
+            }
+        };
+
         function renderWordList() {
             UI.wordList.innerHTML = '';
             chineseLibrary.forEach((word, index) => {
@@ -301,8 +353,6 @@
             }
         };
 
-        // --- 核心邏輯 ---
-        INPUTS.speed.oninput = (e) => UI.speedLabel.innerText = e.target.value;
         INPUTS.advanced.onchange = (e) => document.getElementById('setting-word-count').classList.toggle('hidden', !e.target.checked);
 
         function clearAll() {
@@ -332,7 +382,11 @@
             state.timeLeft = parseInt(INPUTS.gameTime.value) || 30;
             state.targetWords = INPUTS.advanced.checked ? (parseInt(INPUTS.wordCount.value) || 3) : 0;
             
-            UI.canvas.innerHTML = ''; UI.uiLayer.classList.remove('hidden'); updateUI();
+            UI.canvas.innerHTML = ''; 
+            UI.uiContainer.classList.remove('hidden'); 
+            UI.toggleBtn.classList.remove('hidden');
+            updateUI();
+
             trackI(() => { if (!state.isPaused && state.gameActive) { state.timeLeft--; updateUI(); if (state.timeLeft <= 0) stopSpawning(); } }, 1000);
             const interval = (state.timeLeft * 0.9 * 1000) / state.totalToSpawn;
             loop(interval);
@@ -346,10 +400,7 @@
             }, iv);
         }
 
-        function stopSpawning() {
-            // 時間到，不再產生氣球，但必須等待畫面上氣球飄完
-            state.spawnedCount = state.totalToSpawn;
-        }
+        function stopSpawning() { state.spawnedCount = state.totalToSpawn; }
 
         function spawn() {
             state.spawnedCount++; updateUI();
@@ -357,8 +408,7 @@
             const wobble = document.createElement('div'); wobble.className = 'wobble-layer';
             const b = document.createElement('div');
             let t = Math.random() > 0.5 ? 'blue' : 'red';
-            
-            const maxVal = INPUTS.maxNum ? (parseInt(INPUTS.maxNum.value) || 10) : 10;
+            const maxVal = parseInt(INPUTS.maxNum.value) || 10;
             const v = Math.floor(Math.random() * maxVal) + 1;
 
             if (INPUTS.advanced.checked && state.currentWordsCount < state.targetWords) {
@@ -372,24 +422,34 @@
                 b.innerText = w; state.actualWords.push(w); state.currentWordsCount++; 
             }
             b.onclick = () => { if (!state.isPaused && state.gameActive) { b.classList.add('popped'); setTimeout(() => { if (wrap.parentNode) UI.canvas.removeChild(wrap); checkEnd(); }, 200); } };
-            wrap.style.left = (Math.random() * (window.innerWidth - 120) + 20) + 'px';
-            wrap.style.animationDuration = INPUTS.speed.value + 's';
+            wrap.style.left = (Math.random() * (window.innerWidth - 130) + 20) + 'px';
+            wrap.style.animationDuration = (parseInt(INPUTS.speed.value) || 8) + 's';
             wobble.style.animationDuration = (Math.random() * 2 + 2) + 's';
             wobble.appendChild(b); wrap.appendChild(wobble); UI.canvas.appendChild(wrap);
             wrap.onanimationend = () => { if (wrap.parentNode) UI.canvas.removeChild(wrap); checkEnd(); };
         }
 
-        function checkEnd() { 
-            // 關鍵：只有當總數達標，且畫面上沒有任何氣球時才結束
-            if (state.spawnedCount >= state.totalToSpawn && UI.canvas.childElementCount === 0) {
-                finish();
-            }
-        }
-
-        function updateUI() { UI.timer.innerText = `時間: ${state.timeLeft}s`; UI.progress.innerText = `進度: ${state.spawnedCount} / ${state.totalToSpawn}`; }
+        function checkEnd() { if (state.spawnedCount >= state.totalToSpawn && UI.canvas.childElementCount === 0) finish(); }
+        function updateUI() { UI.timer.innerText = `時間: ${state.timeLeft}s`; UI.progress.innerText = `進度: ${state.spawnedCount}/${state.totalToSpawn}`; }
+        
         UI.stopBtn.onclick = () => reset();
-        function reset() { state.gameActive = false; clearAll(); UI.canvas.innerHTML = ''; UI.uiLayer.classList.add('hidden'); UI.result.classList.add('hidden'); UI.feedback.classList.add('hidden'); UI.menu.classList.remove('hidden'); UI.pauseBtn.innerText = "暫停"; }
-        function finish() { state.gameActive = false; clearAll(); UI.uiLayer.classList.add('hidden'); UI.canvas.innerHTML = ''; INPUTS.ansSum.value = ''; INPUTS.ansWords.value = ''; UI.result.classList.remove('hidden'); UI.ansWordsCont.classList.toggle('hidden', !INPUTS.advanced.checked); }
+        function reset() { 
+            state.gameActive = false; clearAll(); UI.canvas.innerHTML = ''; 
+            UI.uiContainer.classList.add('hidden'); 
+            UI.toggleBtn.classList.add('hidden');
+            UI.result.classList.add('hidden'); UI.feedback.classList.add('hidden'); 
+            UI.menu.classList.remove('hidden'); UI.pauseBtn.innerText = "暫停"; 
+        }
+        
+        function finish() { 
+            state.gameActive = false; clearAll(); 
+            UI.uiContainer.classList.add('hidden'); 
+            UI.toggleBtn.classList.add('hidden');
+            UI.canvas.innerHTML = ''; 
+            INPUTS.ansSum.value = ''; INPUTS.ansWords.value = ''; 
+            UI.result.classList.remove('hidden'); 
+            UI.ansWordsCont.classList.toggle('hidden', !INPUTS.advanced.checked); 
+        }
 
         UI.pauseBtn.onclick = function() {
             if (!state.gameActive) return;
@@ -399,7 +459,8 @@
         };
 
         UI.verifyBtn.onclick = () => {
-            const uS = parseInt(INPUTS.ansSum.value); const uW = INPUTS.ansWords.value.trim();
+            const uSInput = INPUTS.ansSum.value;
+            const uS = parseInt(uSInput); const uW = INPUTS.ansWords.value.trim();
             const sO = uS === state.actualSum; const wO = !INPUTS.advanced.checked || (uW === state.actualWords.join(''));
             UI.result.classList.add('hidden'); UI.feedback.classList.remove('hidden');
             document.getElementById('res-icon').innerText = (sO && wO) ? "🏆" : (sO || wO ? "🥈" : "😅");
