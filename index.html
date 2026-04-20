@@ -133,10 +133,9 @@
                 margin: 0; 
             }
             html, body { 
+                height: 100%;
                 margin: 0 !important; 
                 padding: 0 !important; 
-                height: auto !important;
-                width: auto !important;
                 background: white; 
                 overflow: visible !important;
             }
@@ -147,7 +146,6 @@
                 padding: 0 !important; 
                 margin: 0 !important; 
                 display: block !important;
-                overflow: visible !important;
             }
             .a4-wrapper { 
                 height: auto !important; 
@@ -155,21 +153,16 @@
                 padding: 0 !important;
                 display: block !important; 
                 page-break-inside: avoid;
-                break-inside: avoid;
             }
             .a4-page {
                 transform: none !important;
                 box-shadow: none !important;
                 margin: 0 !important;
                 display: flex !important;
-                page-break-after: always !important;
-                break-after: page !important;
-                /* 強制鎖定 A4 物理尺寸，防止手機瀏覽器縮放干擾 */
-                width: 210mm !important;
-                height: 297mm !important;
+                page-break-after: always;
+                break-after: page;
             }
-            /* 嚴格修正最後一頁多出空白的問題 */
-            .a4-wrapper:last-child,
+            /* 修正最後一頁多出空白的問題 */
             .a4-wrapper:last-child .a4-page { 
                 page-break-after: avoid !important;
                 break-after: avoid !important;
@@ -349,10 +342,12 @@
             const approxWidth = 680; 
             const approxHeight = 700;
             
+            // 隨機佈局需要更大的間距緩衝，否則容易發生碰撞死路
             const safeDistance = dotSize * 1.5; 
             const maxCols = Math.floor(approxWidth / safeDistance);
             const maxRows = Math.floor(approxHeight / safeDistance);
             
+            // 隨機密度係數調降，確保佈局在極限情況下依然能成功
             const totalMax = Math.max(5, Math.floor(maxCols * maxRows * 0.55));
 
             const currentTarget = parseInt(targetEl.value);
@@ -476,6 +471,7 @@
             
             const colors = ['#f1f5f9', '#fee2e2', '#fef3c7', '#dcfce7', '#dbeafe', '#f3e8ff'];
             const placed = [];
+            // 加大碰撞距離，防止視覺重疊
             const minDist = dotSize * 1.35;
 
             items.forEach(item => {
@@ -494,6 +490,7 @@
 
                 let x, y, attempts = 0;
                 const margin = 15;
+                // 大幅增加尋找次數，提升佈局密度較高時的成功率
                 while (attempts < 2000) {
                     x = Math.random() * (bWidth - dotSize - (margin * 2)) + margin;
                     y = Math.random() * (bHeight - dotSize - (margin * 2)) + margin;
