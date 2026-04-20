@@ -2,472 +2,461 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>氣球心算注意力挑戰 V17</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數字連線紙本產生器 - 專業版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+        :root {
+            --number-size: 70px;
+            --font-size: 31.5px;
+            --a4-width: 210mm;
+            --a4-height: 297mm;
+            --primary-color: #2563eb;
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            overflow: hidden;
-            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
-            height: 100vh;
+            background-color: #f8fafc;
             margin: 0;
-            user-select: none;
-            touch-action: none;
+            color: #1e293b;
+            overflow-x: hidden;
         }
 
-        /* 氣球容器 - 大尺寸 */
-        .balloon-wrapper {
+        /* --- A4 預覽邏輯 --- */
+        #preview-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* 在螢幕上縮放 A4 頁面以適應手機螢幕 */
+        .a4-wrapper {
+            perspective: 1000px;
+            margin-bottom: 30px;
+        }
+
+        .a4-page {
+            background-color: white;
+            width: var(--a4-width);
+            height: var(--a4-height);
+            padding: 15mm;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            transform-origin: top center;
+        }
+
+        /* 手機端自動縮放預覽 */
+        @media (max-width: 850px) {
+            #preview-area { padding: 10px; }
+            .a4-page {
+                transform: scale(calc(100vw / 850)); /* 動態計算縮放比例 */
+            }
+            .a4-wrapper {
+                height: calc(var(--a4-height) * (100vw / 850));
+            }
+        }
+
+        /* --- 遊戲區樣式 --- */
+        .game-board {
+            flex-grow: 1;
+            position: relative;
+            border: 3px solid #000;
+            margin-top: 5mm;
+            box-sizing: border-box;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        .number-item {
             position: absolute;
-            bottom: -200px;
-            z-index: 10;
-            animation: rise linear forwards;
-        }
-
-        .wobble-layer {
-            animation: wobble 3s ease-in-out infinite;
-        }
-
-        /* 氣球樣式 - 長輩友善加強版 */
-        .balloon {
-            width: 100px;
-            height: 130px;
-            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            width: var(--number-size);
+            height: var(--number-size);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: 800;
-            font-size: 2.2rem;
-            text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
-            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.15), 5px 10px 20px rgba(0,0,0,0.2);
-            cursor: pointer;
-            position: relative;
-            border: 2px solid rgba(255,255,255,0.3);
+            font-size: var(--font-size);
+            font-weight: bold;
+            border: 2.5px solid #000;
+            border-radius: 50%;
+            background: white;
+            user-select: none;
+            box-sizing: border-box;
+            z-index: 10;
         }
 
-        @media (min-width: 768px) {
-            .balloon { width: 130px; height: 170px; font-size: 2.8rem; }
+        /* --- 控制面板樣式 --- */
+        #controls {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .balloon::after {
-            content: '';
-            position: absolute;
-            bottom: -15px;
+        #controls.collapsed {
+            transform: translateY(-100%);
+        }
+
+        .control-trigger {
+            position: fixed;
+            top: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 3px;
-            height: 50px;
-            background: rgba(0,0,0,0.2);
+            z-index: 1001;
+            background: #1e293b;
+            color: white;
+            padding: 4px 20px;
+            border-radius: 0 0 15px 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
         }
 
-        .balloon-blue { background-color: #2563EB; }
-        .balloon-red { background-color: #DC2626; }
-        .balloon-yellow { background-color: #F59E0B; color: #451a03; text-shadow: none !important; }
-
-        @keyframes rise {
-            from { bottom: -200px; }
-            to { bottom: 120vh; }
+        .control-trigger:hover {
+            padding-top: 8px;
+            background: var(--primary-color);
         }
 
-        @keyframes wobble {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(30px); }
+        input[type="range"] {
+            accent-color: var(--primary-color);
         }
 
-        @keyframes pop {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(2.5); opacity: 0; }
+        /* --- 列印修正 --- */
+        @media print {
+            @page { size: A4; margin: 0; }
+            body { background: white; }
+            #controls, .no-print, .control-trigger { display: none !important; }
+            #preview-area { padding: 0; margin: 0; }
+            .a4-wrapper { height: auto; margin: 0; }
+            .a4-page {
+                transform: none !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                page-break-after: always;
+            }
+            .a4-page:last-child { page-break-after: avoid; }
         }
 
-        .paused .balloon-wrapper,
-        .paused .wobble-layer {
-            animation-play-state: paused !important;
+        /* 骨架屏動畫 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-        
-        .paused .balloon { pointer-events: none; }
-
-        .popped {
-            animation: pop 0.2s ease-out forwards !important;
-            pointer-events: none;
-        }
-
-        /* 控制列與切換按鈕層級 */
-        #ui-container {
-            z-index: 10000;
-        }
-        #toggle-ui-btn {
-            z-index: 10001;
-        }
-
-        .glass-morphism {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .modal-bg {
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(15px);
-        }
-
-        /* 輸入框統一格式 */
-        .input-standard {
-            width: 100%;
-            border-width: 2px;
-            border-color: #f3f4f6;
-            border-radius: 1rem;
-            padding: 0.75rem;
-            margin-top: 0.25rem;
-            outline: none;
-            transition: all 0.2s;
-            text-align: center;
-            font-weight: 700;
-            font-size: 1.125rem;
-        }
-        .input-standard:focus {
-            border-color: #60a5fa;
-            background-color: #f9fafb;
-        }
+        .loading-text { animation: pulse 1.5s infinite; }
     </style>
 </head>
-<body>
+<body class="pb-10">
 
-    <div id="app-root" class="relative w-full h-full">
-        
-        <!-- 主選單畫面 -->
-        <div id="menu-screen" class="absolute inset-0 flex items-center justify-center z-[11000] p-4 bg-sky-50/80">
-            <div class="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center border-4 border-white flex flex-col max-h-full overflow-y-auto">
-                <h1 class="text-3xl md:text-4xl font-bold text-blue-600 mb-2">氣球心算注意力挑戰</h1>
-                <p id="lib-count-text" class="text-sm text-gray-400 mb-6 font-bold">目前題庫：132 個國字</p>
-                
-                <div class="space-y-4 text-left mb-8">
-                    <!-- 第一排：時間與總數 -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">關卡時間 (秒)</label>
-                            <input type="number" id="input-game-time" value="30" class="input-standard">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">氣球總數</label>
-                            <input type="number" id="input-total-balloons" value="15" class="input-standard">
-                        </div>
-                    </div>
+    <div id="controls" class="no-print shadow-sm overflow-hidden">
+        <div class="max-w-6xl mx-auto p-4 md:p-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+                <div>
+                    <h1 class="text-xl font-bold text-blue-700">數字連線紙本產生器</h1>
+                    <p class="text-xs text-slate-500">專為職能訓練與視覺搜尋設計</p>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="generateBatch()" class="flex-1 md:flex-none bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition active:scale-95 shadow-md">
+                        🔄 重新生成
+                    </button>
+                    <button onclick="window.print()" class="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition active:scale-95 shadow-md">
+                        🖨️ 列印 / PDF
+                    </button>
+                </div>
+            </div>
 
-                    <!-- 第二排：速度與範圍 -->
-                    <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- 第一欄 -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-blue-500 pl-2">數量設定</h3>
+                    <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">飄浮速度 (秒)</label>
-                            <input type="number" id="input-speed" value="8" min="1" step="1" class="input-standard">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">數字範圍 (1~X)</label>
-                            <input type="number" id="input-max-num" value="10" min="1" class="input-standard">
-                        </div>
-                    </div>
-
-                    <!-- 第三排：進階模式 -->
-                    <div class="p-5 bg-orange-50 rounded-3xl border-2 border-orange-100 mt-2">
-                        <label class="flex items-center space-x-3 cursor-pointer">
-                            <input type="checkbox" id="input-advanced-mode" class="w-6 h-6 text-orange-500 rounded-lg">
-                            <span class="text-lg font-bold text-orange-600">進階模式 (記憶國字氣球)</span>
-                        </label>
-                        <div id="setting-word-count" class="hidden flex items-center justify-between mt-4 pl-9">
-                            <div class="flex items-center space-x-2">
-                                <span class="font-bold text-gray-600">記憶字數:</span>
-                                <input type="number" id="input-target-word-count" value="3" class="w-20 border-2 border-orange-200 rounded-xl p-2 text-center font-bold outline-none focus:border-orange-400">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>目標點數量</span>
+                                <span class="font-bold text-blue-600"><span id="val_targetCount">10</span> <small id="max_targetCount" class="text-slate-400 font-normal"></small></span>
                             </div>
-                            <button id="btn-open-lib" class="bg-orange-200 text-orange-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-300 transition-colors">編輯題庫</button>
+                            <input type="range" id="targetCount" class="w-full" value="10" min="2" max="50" oninput="checkCapacity()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>干擾點數量</span>
+                                <span class="font-bold text-blue-600"><span id="val_noiseCount">0</span> <small id="max_noiseCount" class="text-slate-400 font-normal"></small></span>
+                            </div>
+                            <input type="range" id="noiseCount" class="w-full" value="0" min="0" max="40" oninput="checkCapacity()">
                         </div>
                     </div>
                 </div>
 
-                <button id="btn-start" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-5 rounded-[2rem] shadow-xl transition active:scale-95 text-2xl mb-6">
-                    開始挑戰
-                </button>
-                
-                <div class="pt-6 border-t border-gray-100">
-                    <a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-sm text-blue-400 font-bold flex items-center justify-center hover:underline">
-                        設計：職能治療師 - 鄭凱文
-                    </a>
+                <!-- 第二欄 -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-amber-500 pl-2">挑戰模式</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex flex-col p-2 bg-white rounded border cursor-pointer hover:bg-blue-50 transition">
+                            <input type="radio" name="mode" value="sequential" checked onchange="generateBatch()" class="mb-1">
+                            <span class="text-xs font-bold text-center">1, 2, 3...</span>
+                            <span class="text-[10px] text-slate-500 text-center">標準序數</span>
+                        </label>
+                        <label class="flex flex-col p-2 bg-white rounded border cursor-pointer hover:bg-blue-50 transition">
+                            <input type="radio" name="mode" value="random" onchange="generateBatch()" class="mb-1">
+                            <span class="text-xs font-bold text-center">進階隨機</span>
+                            <span class="text-[10px] text-slate-500 text-center">跳號數列</span>
+                        </label>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" id="allowRotation" onchange="generateBatch()" class="w-4 h-4"> 數字旋轉 (空間辨識)
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" id="allowColor" onchange="generateBatch()" class="w-4 h-4"> 背景顏色 (視覺干擾)
+                        </label>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- 題庫管理 -->
-        <div id="lib-screen" class="hidden absolute inset-0 flex items-center justify-center z-[12000] modal-bg p-4">
-            <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] border-2 border-gray-50">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-gray-800">國字題庫管理</h2>
-                    <button id="btn-close-lib" class="text-gray-400 text-4xl leading-none">&times;</button>
-                </div>
-                <div class="flex space-x-3 mb-6">
-                    <input type="text" id="input-new-word" maxlength="1" placeholder="輸入字" class="flex-grow border-2 border-gray-100 rounded-2xl p-3 text-center text-xl font-bold">
-                    <button id="btn-add-word" class="bg-orange-500 text-white px-8 py-3 rounded-2xl font-bold">新增</button>
-                </div>
-                <div id="word-list" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 overflow-y-auto p-4 bg-gray-50 rounded-3xl flex-grow shadow-inner"></div>
-            </div>
-        </div>
-
-        <!-- 遊戲畫布 -->
-        <div id="game-canvas" class="w-full h-full relative overflow-hidden"></div>
-
-        <!-- 遊戲操作 UI -->
-        <div id="ui-container" class="hidden absolute top-0 left-0 w-full p-2 md:p-4 flex flex-col items-center pointer-events-none transition-all duration-300">
-            <div id="game-ui-bar" class="w-full max-w-4xl glass-morphism rounded-2xl px-4 py-2 flex items-center justify-between pointer-events-auto shadow-lg">
-                <div class="flex items-center space-x-4">
-                    <div id="timer-ui" class="font-bold text-blue-700 text-sm md:text-lg whitespace-nowrap">時間: --s</div>
-                    <div id="progress-ui" class="font-bold text-purple-700 text-sm md:text-lg whitespace-nowrap">進度: 0/0</div>
-                </div>
-                <div class="flex items-center space-x-2 md:space-x-4">
-                    <button id="btn-pause" class="bg-yellow-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl font-bold text-sm md:text-base shadow-md active:scale-95 transition-transform">暫停</button>
-                    <button id="btn-stop" class="bg-red-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl font-bold text-sm md:text-base shadow-md active:scale-95 transition-transform">結束</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 隱藏/顯示 UI 的切換按鈕 -->
-        <button id="toggle-ui-btn" class="hidden absolute top-3 right-3 md:top-5 md:right-5 bg-white/80 hover:bg-white p-2 rounded-full shadow-md text-gray-600 transition-all active:scale-90">
-            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            <svg id="eye-off-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-        </button>
-
-        <div id="countdown-overlay" class="hidden absolute inset-0 flex items-center justify-center text-[12rem] font-bold text-blue-600 drop-shadow-2xl pointer-events-none z-[9000]"></div>
-
-        <!-- 結算畫面 -->
-        <div id="result-screen" class="hidden absolute inset-0 flex items-center justify-center z-[13000] modal-bg p-4">
-            <div class="bg-white p-8 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-blue-50">
-                <h2 class="text-3xl font-bold mb-8 text-gray-800">挑戰結束！請填寫</h2>
-                <div class="space-y-6 text-left">
+                <!-- 第三欄 -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-emerald-500 pl-2">視覺大小</h3>
                     <div>
-                        <label class="block text-lg font-bold text-gray-500 mb-2 text-center">數字總和</label>
-                        <input type="number" id="ans-sum" placeholder="請填寫數字" class="w-full border-2 border-blue-100 rounded-2xl p-5 text-3xl font-bold text-center outline-none focus:border-blue-500">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>圓圈直徑</span>
+                            <span class="font-bold text-blue-600"><span id="val_dotSize">70</span>px</span>
+                        </div>
+                        <input type="range" id="dotSize" class="w-full" value="70" min="35" max="110" oninput="checkCapacity()">
                     </div>
-                    <div id="ans-words-container" class="hidden">
-                        <label class="block text-lg font-bold text-gray-500 mb-2 text-center">國字順序</label>
-                        <input type="text" id="ans-words" placeholder="請依序填寫" class="w-full border-2 border-orange-100 rounded-2xl p-5 text-3xl font-bold text-center outline-none focus:border-orange-500">
+                    <div class="mt-3">
+                        <label class="text-sm block mb-1">一次產生份數</label>
+                        <input type="number" id="copyCount" value="1" min="1" max="20" class="w-full px-3 py-1 rounded border text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
-                <button id="btn-verify" class="w-full mt-10 bg-green-500 hover:bg-green-600 text-white font-bold py-5 rounded-[2rem] shadow-xl text-2xl transition active:scale-95">提交答案</button>
             </div>
-        </div>
-
-        <!-- 結果反饋 -->
-        <div id="feedback-screen" class="hidden absolute inset-0 flex items-center justify-center z-[14000] modal-bg p-4">
-            <div class="bg-white p-8 rounded-[3rem] shadow-2xl w-full max-w-md text-center border-4 border-gray-50">
-                <div id="res-icon" class="text-[8rem] mb-6">🎉</div>
-                <h2 id="res-title" class="font-bold text-3xl mb-6">挑戰結果</h2>
-                <div id="res-body" class="text-left bg-gray-50 p-6 rounded-3xl mb-8 space-y-4 border-2 border-gray-100 text-xl"></div>
-                <button id="btn-restart" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-5 rounded-[2rem] shadow-xl text-2xl">返回主選單</button>
+            
+            <div class="mt-4 pt-4 border-t text-center">
+                <a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-xs text-slate-400 hover:text-blue-600 transition underline underline-offset-4">設計：職能治療師 - 鄭凱文</a>
             </div>
         </div>
     </div>
 
+    <!-- 面板隱藏/顯示觸發器 -->
+    <div id="togglePanel" class="control-trigger no-print font-bold text-xs">
+        <span id="trigger-text">隱藏設定選單</span>
+    </div>
+
+    <!-- 預覽區域 -->
+    <div id="preview-area">
+        <div id="pagesContainer" class="w-full flex flex-col items-center">
+            <!-- 動態生成頁面 -->
+        </div>
+    </div>
+
     <script>
-        let chineseLibrary = ["天", "地", "人", "水", "火", "木", "金", "山", "海", "雲", "風", "月", "日", "光", "星", "花", "鳥", "石", "川", "龍", "虎", "雨", "電", "心", "夢", "森", "林", "湖", "泉", "冰", "雪", "霧", "露", "霜", "霄", "霆", "震", "虹", "霓", "霞", "魚", "蝦", "蟹", "蛇", "鹿", "象", "馬", "牛", "羊", "雞", "犬", "豕", "貓", "鼠", "兔", "東", "西", "南", "北", "上", "下", "左", "右", "中", "紅", "橙", "黃", "綠", "藍", "靛", "紫", "黑", "白", "青", "灰", "褐", "仁", "義", "禮", "智", "信", "忠", "孝", "愛", "和", "平", "誠", "勇", "春", "夏", "秋", "冬", "晨", "昏", "晝", "夜", "銀", "銅", "鐵", "錫", "珠", "寶", "玉", "翠", "大", "小", "長", "短", "高", "低", "寬", "窄", "文", "武", "詩", "書", "琴", "棋", "畫", "劍", "盾", "神", "仙", "鬼", "佛", "聖", "賢", "酒", "茶", "飯", "菜"];
-
-        const UI = {
-            menu: document.getElementById('menu-screen'),
-            libScreen: document.getElementById('lib-screen'),
-            canvas: document.getElementById('game-canvas'),
-            uiContainer: document.getElementById('ui-container'),
-            uiBar: document.getElementById('game-ui-bar'),
-            toggleBtn: document.getElementById('toggle-ui-btn'),
-            eyeIcon: document.getElementById('eye-icon'),
-            eyeOffIcon: document.getElementById('eye-off-icon'),
-            countdown: document.getElementById('countdown-overlay'),
-            result: document.getElementById('result-screen'),
-            feedback: document.getElementById('feedback-screen'),
-            ansWordsCont: document.getElementById('ans-words-container'),
-            timer: document.getElementById('timer-ui'),
-            progress: document.getElementById('progress-ui'),
-            wordList: document.getElementById('word-list'),
-            libCountText: document.getElementById('lib-count-text'),
-            pauseBtn: document.getElementById('btn-pause'),
-            stopBtn: document.getElementById('btn-stop'),
-            startBtn: document.getElementById('btn-start'),
-            verifyBtn: document.getElementById('btn-verify'),
-            restartBtn: document.getElementById('btn-restart'),
-            openLibBtn: document.getElementById('btn-open-lib'),
-            closeLibBtn: document.getElementById('btn-close-lib'),
-            addWordBtn: document.getElementById('btn-add-word'),
-            newWordInput: document.getElementById('input-new-word')
-        };
-
-        const INPUTS = {
-            gameTime: document.getElementById('input-game-time'),
-            totalBalloons: document.getElementById('input-total-balloons'),
-            speed: document.getElementById('input-speed'),
-            maxNum: document.getElementById('input-max-num'),
-            advanced: document.getElementById('input-advanced-mode'),
-            wordCount: document.getElementById('input-target-word-count'),
-            ansSum: document.getElementById('ans-sum'),
-            ansWords: document.getElementById('ans-words')
-        };
-
-        let state = {
-            gameActive: false, isPaused: false, uiVisible: true,
-            timeLeft: 0, actualSum: 0, actualWords: [], spawnedCount: 0,
-            totalToSpawn: 0, targetWords: 0, currentWordsCount: 0,
-            timerIds: [], intervalIds: []
-        };
-
-        UI.toggleBtn.onclick = () => {
-            state.uiVisible = !state.uiVisible;
-            if (state.uiVisible) {
-                UI.uiContainer.style.transform = 'translateY(0)';
-                UI.uiContainer.style.opacity = '1';
-                UI.eyeIcon.classList.remove('hidden');
-                UI.eyeOffIcon.classList.add('hidden');
+        const controls = document.getElementById('controls');
+        const trigger = document.getElementById('togglePanel');
+        const triggerText = document.getElementById('trigger-text');
+        
+        trigger.onclick = () => {
+            controls.classList.toggle('collapsed');
+            if (controls.classList.contains('collapsed')) {
+                triggerText.innerText = "顯示設定選單";
+                trigger.style.top = "0";
             } else {
-                UI.uiContainer.style.transform = 'translateY(-100%)';
-                UI.uiContainer.style.opacity = '0';
-                UI.eyeIcon.classList.add('hidden');
-                UI.eyeOffIcon.classList.remove('hidden');
+                triggerText.innerText = "隱藏設定選單";
             }
         };
 
-        function renderWordList() {
-            UI.wordList.innerHTML = '';
-            chineseLibrary.forEach((word, index) => {
-                const div = document.createElement('div');
-                div.className = 'relative bg-white border-2 border-gray-100 rounded-xl p-2 text-center font-bold h-12 flex items-center justify-center text-xl shadow-sm';
-                div.innerText = word;
-                const delBtn = document.createElement('button');
-                delBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md';
-                delBtn.innerText = '✕';
-                delBtn.onclick = (e) => { e.stopPropagation(); chineseLibrary.splice(index, 1); renderWordList(); updateLibInfo(); };
-                div.appendChild(delBtn);
-                UI.wordList.appendChild(div);
+        function updateStyles() {
+            const size = document.getElementById('dotSize').value;
+            document.documentElement.style.setProperty('--number-size', size + 'px');
+            document.documentElement.style.setProperty('--font-size', (size * 0.45) + 'px');
+            document.getElementById('val_dotSize').innerText = size;
+        }
+
+        function checkCapacity() {
+            const targetEl = document.getElementById('targetCount');
+            const noiseEl = document.getElementById('noiseCount');
+            const dotSize = parseInt(document.getElementById('dotSize').value);
+
+            // A4 內容區估算 (180mm x 200mm)
+            const approxWidth = 680; 
+            const approxHeight = 700;
+            
+            const safeDistance = dotSize * 1.35; 
+            const maxCols = Math.floor(approxWidth / safeDistance);
+            const maxRows = Math.floor(approxHeight / safeDistance);
+            const totalMax = Math.max(5, Math.floor(maxCols * maxRows * 0.75));
+
+            const currentTarget = parseInt(targetEl.value);
+            const currentNoise = parseInt(noiseEl.value);
+
+            const targetLimit = Math.max(2, totalMax - currentNoise);
+            targetEl.max = targetLimit;
+            document.getElementById('max_targetCount').innerText = `(上限: ${targetLimit})`;
+
+            const noiseLimit = Math.max(0, totalMax - currentTarget);
+            noiseEl.max = noiseLimit;
+            document.getElementById('max_noiseCount').innerText = `(上限: ${noiseLimit})`;
+
+            if (currentTarget > targetLimit) targetEl.value = targetLimit;
+            if (currentNoise > noiseLimit) noiseEl.value = noiseLimit;
+
+            document.getElementById('val_targetCount').innerText = targetEl.value;
+            document.getElementById('val_noiseCount').innerText = noiseEl.value;
+            
+            updateStyles();
+            generateBatch();
+        }
+
+        function generateBatch() {
+            const container = document.getElementById('pagesContainer');
+            const copyCount = Math.min(20, parseInt(document.getElementById('copyCount').value) || 1);
+            
+            // 避免頻繁重建 DOM 造成的卡頓
+            container.innerHTML = '<div class="no-print py-20 loading-text text-xl font-bold text-slate-300">正在優化佈局中...</div>';
+            
+            setTimeout(() => {
+                container.innerHTML = '';
+                for (let i = 0; i < copyCount; i++) {
+                    const data = createSinglePage(i);
+                    container.appendChild(data.wrapper);
+                    renderItems(data);
+                }
+            }, 100);
+        }
+
+        function createSinglePage(idx) {
+            const targetCount = parseInt(document.getElementById('targetCount').value);
+            const noiseCount = parseInt(document.getElementById('noiseCount').value);
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const allowRotation = document.getElementById('allowRotation').checked;
+            const allowColor = document.getElementById('allowColor').checked;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'a4-wrapper';
+            
+            const page = document.createElement('div');
+            page.className = 'a4-page';
+            
+            let targetNumbers = [];
+            let instructionText = "";
+            let seqHtml = "";
+
+            if (mode === 'sequential') {
+                instructionText = `從數字 1 開始，依序 (1 → 2 → 3...) 連接到 ${targetCount}。`;
+                for (let i = 1; i <= targetCount; i++) targetNumbers.push(i);
+            } else {
+                instructionText = `請按照下方的「指定數列」順序進行連線。`;
+                let pool = Array.from({length: 99}, (_, i) => i + 1);
+                for (let i = 0; i < targetCount; i++) {
+                    const rIdx = Math.floor(Math.random() * pool.length);
+                    targetNumbers.push(pool.splice(rIdx, 1)[0]);
+                }
+                seqHtml = `
+                    <div class="mt-2">
+                        <p class="text-[10px] text-slate-400 italic mb-1 text-center">連線順序：</p>
+                        <div class="text-xl font-black tracking-widest text-center border-2 border-dashed border-slate-300 p-2 bg-slate-50 rounded">
+                            ${targetNumbers.join(' → ')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            page.innerHTML = `
+                <div class="header-section text-center">
+                    <h2 class="text-4xl font-bold mb-4 tracking-tighter">數字連線測驗</h2>
+                    <div class="bg-white p-4 border-2 border-black rounded-xl">
+                        <p class="text-lg font-bold text-black italic">作答說明：${instructionText}</p>
+                        ${seqHtml}
+                    </div>
+                    <div class="flex justify-between text-lg mt-6 px-4 font-bold border-b-2 border-black pb-2">
+                        <span>姓名：________________</span>
+                        <span>日期：________________</span>
+                        <span class="text-sm font-normal">No. ${idx + 1}</span>
+                    </div>
+                </div>
+                <div class="game-board"></div>
+            `;
+
+            wrapper.appendChild(page);
+
+            const items = targetNumbers.map(v => ({ value: v, isTarget: true }));
+            let added = 0;
+            while (added < noiseCount) {
+                let v = Math.floor(Math.random() * 99) + 1;
+                if (!items.find(it => it.value === v)) {
+                    items.push({ value: v, isTarget: false });
+                    added++;
+                }
+            }
+
+            return { 
+                wrapper, 
+                board: page.querySelector('.game-board'), 
+                items: items.sort(() => Math.random() - 0.5),
+                allowRotation, 
+                allowColor 
+            };
+        }
+
+        function renderItems(data) {
+            const { board, items, allowRotation, allowColor } = data;
+            const dotSize = parseInt(document.getElementById('dotSize').value);
+            const bWidth = board.clientWidth || 680;
+            const bHeight = board.clientHeight || 730;
+            
+            const colors = ['#f1f5f9', '#fee2e2', '#fef3c7', '#dcfce7', '#dbeafe', '#f3e8ff'];
+            const placed = [];
+            const minDist = dotSize * 1.2;
+
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'number-item transition-all duration-500';
+                el.innerText = item.value;
+
+                if (allowRotation) {
+                    const angle = Math.floor(Math.random() * 120) - 60;
+                    el.style.transform = `rotate(${angle}deg)`;
+                }
+
+                if (allowColor) {
+                    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                }
+
+                let x, y, attempts = 0;
+                while (attempts < 1000) {
+                    x = Math.random() * (bWidth - dotSize - 20) + 10;
+                    y = Math.random() * (bHeight - dotSize - 20) + 10;
+                    
+                    const tooClose = placed.some(p => Math.hypot(p.x - x, p.y - y) < minDist);
+                    if (!tooClose) break;
+                    attempts++;
+                }
+
+                placed.push({x, y});
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                board.appendChild(el);
             });
         }
-        function updateLibInfo() { UI.libCountText.innerText = `目前題庫：${chineseLibrary.length} 個國字`; }
-        UI.openLibBtn.onclick = () => { renderWordList(); UI.libScreen.classList.remove('hidden'); };
-        UI.closeLibBtn.onclick = () => UI.libScreen.classList.add('hidden');
-        UI.addWordBtn.onclick = () => {
-            const word = UI.newWordInput.value.trim();
-            if (word && word.length === 1 && !chineseLibrary.includes(word)) {
-                chineseLibrary.unshift(word); UI.newWordInput.value = ''; renderWordList(); updateLibInfo();
-            }
+
+        window.onload = () => {
+            checkCapacity();
         };
 
-        INPUTS.advanced.onchange = (e) => document.getElementById('setting-word-count').classList.toggle('hidden', !e.target.checked);
-
-        function clearAll() {
-            state.timerIds.forEach(id => clearTimeout(id));
-            state.intervalIds.forEach(id => clearInterval(id));
-            state.timerIds = []; state.intervalIds = [];
-        }
-        function trackT(fn, d) { state.timerIds.push(setTimeout(fn, d)); }
-        function trackI(fn, d) { state.intervalIds.push(setInterval(fn, d)); }
-
-        UI.startBtn.onclick = () => { UI.menu.classList.add('hidden'); countdown(); };
-
-        function countdown() {
-            UI.countdown.classList.remove('hidden');
-            let c = 3; UI.countdown.innerText = c;
-            const itv = setInterval(() => {
-                c--;
-                if (c > 0) UI.countdown.innerText = c;
-                else { clearInterval(itv); UI.countdown.classList.add('hidden'); if (!state.gameActive) start(); }
-            }, 1000);
-        }
-
-        function start() {
-            state.gameActive = true; state.isPaused = false;
-            state.actualSum = 0; state.actualWords = []; state.spawnedCount = 0; state.currentWordsCount = 0;
-            state.totalToSpawn = parseInt(INPUTS.totalBalloons.value) || 15;
-            state.timeLeft = parseInt(INPUTS.gameTime.value) || 30;
-            state.targetWords = INPUTS.advanced.checked ? (parseInt(INPUTS.wordCount.value) || 3) : 0;
-            
-            UI.canvas.innerHTML = ''; 
-            UI.uiContainer.classList.remove('hidden'); 
-            UI.toggleBtn.classList.remove('hidden');
-            updateUI();
-
-            trackI(() => { if (!state.isPaused && state.gameActive) { state.timeLeft--; updateUI(); if (state.timeLeft <= 0) stopSpawning(); } }, 1000);
-            const interval = (state.timeLeft * 0.9 * 1000) / state.totalToSpawn;
-            loop(interval);
-        }
-
-        function loop(iv) {
-            if (!state.gameActive || state.spawnedCount >= state.totalToSpawn) return;
-            trackT(() => {
-                if (!state.isPaused && state.gameActive && state.spawnedCount < state.totalToSpawn) spawn();
-                if (state.gameActive && state.spawnedCount < state.totalToSpawn) loop(iv);
-            }, iv);
-        }
-
-        function stopSpawning() { state.spawnedCount = state.totalToSpawn; }
-
-        function spawn() {
-            state.spawnedCount++; updateUI();
-            const wrap = document.createElement('div'); wrap.className = 'balloon-wrapper';
-            const wobble = document.createElement('div'); wobble.className = 'wobble-layer';
-            const b = document.createElement('div');
-            let t = Math.random() > 0.5 ? 'blue' : 'red';
-            const maxVal = parseInt(INPUTS.maxNum.value) || 10;
-            const v = Math.floor(Math.random() * maxVal) + 1;
-
-            if (INPUTS.advanced.checked && state.currentWordsCount < state.targetWords) {
-                if (Math.random() < (state.targetWords - state.currentWordsCount) / (state.totalToSpawn - state.spawnedCount + 1)) t = 'yellow';
-            }
-            b.className = `balloon balloon-${t}`;
-            if (t === 'blue') { b.innerText = `+${v}`; state.actualSum += v; }
-            else if (t === 'red') { b.innerText = `-${v}`; state.actualSum -= v; }
-            else { 
-                const w = chineseLibrary.length > 0 ? chineseLibrary[Math.floor(Math.random() * chineseLibrary.length)] : "A";
-                b.innerText = w; state.actualWords.push(w); state.currentWordsCount++; 
-            }
-            b.onclick = () => { if (!state.isPaused && state.gameActive) { b.classList.add('popped'); setTimeout(() => { if (wrap.parentNode) UI.canvas.removeChild(wrap); checkEnd(); }, 200); } };
-            wrap.style.left = (Math.random() * (window.innerWidth - 130) + 20) + 'px';
-            wrap.style.animationDuration = (parseInt(INPUTS.speed.value) || 8) + 's';
-            wobble.style.animationDuration = (Math.random() * 2 + 2) + 's';
-            wobble.appendChild(b); wrap.appendChild(wobble); UI.canvas.appendChild(wrap);
-            wrap.onanimationend = () => { if (wrap.parentNode) UI.canvas.removeChild(wrap); checkEnd(); };
-        }
-
-        function checkEnd() { if (state.spawnedCount >= state.totalToSpawn && UI.canvas.childElementCount === 0) finish(); }
-        function updateUI() { UI.timer.innerText = `時間: ${state.timeLeft}s`; UI.progress.innerText = `進度: ${state.spawnedCount}/${state.totalToSpawn}`; }
-        
-        UI.stopBtn.onclick = () => reset();
-        function reset() { 
-            state.gameActive = false; clearAll(); UI.canvas.innerHTML = ''; 
-            UI.uiContainer.classList.add('hidden'); 
-            UI.toggleBtn.classList.add('hidden');
-            UI.result.classList.add('hidden'); UI.feedback.classList.add('hidden'); 
-            UI.menu.classList.remove('hidden'); UI.pauseBtn.innerText = "暫停"; 
-        }
-        
-        function finish() { 
-            state.gameActive = false; clearAll(); 
-            UI.uiContainer.classList.add('hidden'); 
-            UI.toggleBtn.classList.add('hidden');
-            UI.canvas.innerHTML = ''; 
-            INPUTS.ansSum.value = ''; INPUTS.ansWords.value = ''; 
-            UI.result.classList.remove('hidden'); 
-            UI.ansWordsCont.classList.toggle('hidden', !INPUTS.advanced.checked); 
-        }
-
-        UI.pauseBtn.onclick = function() {
-            if (!state.gameActive) return;
-            state.isPaused = !state.isPaused;
-            UI.canvas.classList.toggle('paused', state.isPaused);
-            this.innerText = state.isPaused ? "繼續" : "暫停";
+        // 監聽視窗大小變化以修正手機端縮放
+        let resizeTimer;
+        window.onresize = () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                location.reload(); // 簡單處理：手機旋轉時重新計算縮放
+            }, 300);
         };
-
-        UI.verifyBtn.onclick = () => {
-            const uSInput = INPUTS.ansSum.value;
-            const uS = parseInt(uSInput); const uW = INPUTS.ansWords.value.trim();
-            const sO = uS === state.actualSum; const wO = !INPUTS.advanced.checked || (uW === state.actualWords.join(''));
-            UI.result.classList.add('hidden'); UI.feedback.classList.remove('hidden');
-            document.getElementById('res-icon').innerText = (sO && wO) ? "🏆" : (sO || wO ? "🥈" : "😅");
-            document.getElementById('res-title').innerText = (sO && wO) ? "完美的表現！" : (sO || wO ? "很接近了！" : "再接再厲！");
-            document.getElementById('res-body').innerHTML = `<div class="flex justify-between items-center"><span class="text-gray-500">正確總和:</span><span class="font-bold text-2xl ${sO?'text-green-600':'text-red-600'}">${state.actualSum}</span></div>${INPUTS.advanced.checked?`<hr class="my-4"><div class="text-lg">正確國字: <span class="font-bold text-blue-600 tracking-widest ml-2">${state.actualWords.join('')}</span></div>`:''}`;
-        };
-        UI.restartBtn.onclick = () => { UI.feedback.classList.add('hidden'); UI.menu.classList.remove('hidden'); };
     </script>
 </body>
 </html>
