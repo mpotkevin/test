@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>數字連線紙本產生器 - 專業版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -11,14 +11,14 @@
         :root {
             --number-size: 70px;
             --font-size: 31.5px;
-            --a4-width: 210mm;
-            --a4-height: 297mm;
+            --a4-width-px: 794px; /* A4 基準寬度 (96dpi) */
+            --a4-height-px: 1123px;
             --primary-color: #2563eb;
         }
 
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             margin: 0;
             color: #1e293b;
             overflow-x: hidden;
@@ -30,39 +30,73 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
+            padding-top: 60px; /* 為浮動選單預留空間 */
             transition: all 0.3s ease;
         }
 
-        /* 在螢幕上縮放 A4 頁面以適應手機螢幕 */
         .a4-wrapper {
-            perspective: 1000px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            /* 高度由 JS 動態調整 */
         }
 
         .a4-page {
             background-color: white;
-            width: var(--a4-width);
-            height: var(--a4-height);
+            width: 210mm;
+            height: 297mm;
             padding: 15mm;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             position: relative;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             transform-origin: top center;
+            flex-shrink: 0;
         }
 
-        /* 手機端自動縮放預覽 */
-        @media (max-width: 850px) {
-            #preview-area { padding: 10px; }
-            .a4-page {
-                transform: scale(calc(100vw / 850)); /* 動態計算縮放比例 */
-            }
-            .a4-wrapper {
-                height: calc(var(--a4-height) * (100vw / 850));
-            }
+        /* --- 控制面板樣式 --- */
+        #controls {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid #e2e8f0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 2000;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         }
+
+        #controls.collapsed {
+            transform: translateY(-100%);
+        }
+
+        /* 改進的切換按鈕 */
+        .control-trigger {
+            position: fixed;
+            top: 10px;
+            right: 15px;
+            z-index: 2100;
+            background: #1e293b;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 99px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-trigger:active { transform: scale(0.9); }
 
         /* --- 遊戲區樣式 --- */
         .game-board {
@@ -92,52 +126,13 @@
             z-index: 10;
         }
 
-        /* --- 控制面板樣式 --- */
-        #controls {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid #e2e8f0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        #controls.collapsed {
-            transform: translateY(-100%);
-        }
-
-        .control-trigger {
-            position: fixed;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1001;
-            background: #1e293b;
-            color: white;
-            padding: 4px 20px;
-            border-radius: 0 0 15px 15px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-        }
-
-        .control-trigger:hover {
-            padding-top: 8px;
-            background: var(--primary-color);
-        }
-
-        input[type="range"] {
-            accent-color: var(--primary-color);
-        }
-
         /* --- 列印修正 --- */
         @media print {
             @page { size: A4; margin: 0; }
-            body { background: white; }
+            body { background: white; padding: 0; }
             #controls, .no-print, .control-trigger { display: none !important; }
-            #preview-area { padding: 0; margin: 0; }
-            .a4-wrapper { height: auto; margin: 0; }
+            #preview-area { padding: 0 !important; margin: 0 !important; }
+            .a4-wrapper { height: auto !important; margin: 0 !important; display: block !important; }
             .a4-page {
                 transform: none !important;
                 box-shadow: none !important;
@@ -147,7 +142,6 @@
             .a4-page:last-child { page-break-after: avoid; }
         }
 
-        /* 骨架屏動畫 */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -157,102 +151,102 @@
 </head>
 <body class="pb-10">
 
-    <div id="controls" class="no-print shadow-sm overflow-hidden">
+    <!-- 控制面板 -->
+    <div id="controls" class="no-print shadow-sm overflow-x-hidden">
         <div class="max-w-6xl mx-auto p-4 md:p-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h1 class="text-xl font-bold text-blue-700">數字連線紙本產生器</h1>
                     <p class="text-xs text-slate-500">專為職能訓練與視覺搜尋設計</p>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="generateBatch()" class="flex-1 md:flex-none bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition active:scale-95 shadow-md">
+                    <button onclick="generateBatch()" class="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition active:scale-95 shadow-md text-sm">
                         🔄 重新生成
                     </button>
-                    <button onclick="window.print()" class="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition active:scale-95 shadow-md">
+                    <button onclick="window.print()" class="flex-1 md:flex-none bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-700 transition active:scale-95 shadow-md text-sm">
                         🖨️ 列印 / PDF
                     </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- 第一欄 -->
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-blue-500 pl-2">數量設定</h3>
-                    <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                <!-- 數量設定 -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-4 border-l-4 border-blue-500 pl-2">數量設定</h3>
+                    <div class="space-y-5">
                         <div>
-                            <div class="flex justify-between text-sm mb-1">
+                            <div class="flex justify-between text-sm mb-2">
                                 <span>目標點數量</span>
                                 <span class="font-bold text-blue-600"><span id="val_targetCount">10</span> <small id="max_targetCount" class="text-slate-400 font-normal"></small></span>
                             </div>
-                            <input type="range" id="targetCount" class="w-full" value="10" min="2" max="50" oninput="checkCapacity()">
+                            <input type="range" id="targetCount" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value="10" min="2" max="50" oninput="checkCapacity()">
                         </div>
                         <div>
-                            <div class="flex justify-between text-sm mb-1">
+                            <div class="flex justify-between text-sm mb-2">
                                 <span>干擾點數量</span>
                                 <span class="font-bold text-blue-600"><span id="val_noiseCount">0</span> <small id="max_noiseCount" class="text-slate-400 font-normal"></small></span>
                             </div>
-                            <input type="range" id="noiseCount" class="w-full" value="0" min="0" max="40" oninput="checkCapacity()">
+                            <input type="range" id="noiseCount" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value="0" min="0" max="40" oninput="checkCapacity()">
                         </div>
                     </div>
                 </div>
 
-                <!-- 第二欄 -->
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-amber-500 pl-2">挑戰模式</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <label class="flex flex-col p-2 bg-white rounded border cursor-pointer hover:bg-blue-50 transition">
-                            <input type="radio" name="mode" value="sequential" checked onchange="generateBatch()" class="mb-1">
+                <!-- 挑戰模式 -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-4 border-l-4 border-amber-500 pl-2">挑戰模式</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <label class="flex flex-col p-2.5 bg-white rounded-xl border cursor-pointer hover:border-blue-300 transition">
+                            <input type="radio" name="mode" value="sequential" checked onchange="generateBatch()" class="mb-2 w-4 h-4 text-blue-600">
                             <span class="text-xs font-bold text-center">1, 2, 3...</span>
-                            <span class="text-[10px] text-slate-500 text-center">標準序數</span>
                         </label>
-                        <label class="flex flex-col p-2 bg-white rounded border cursor-pointer hover:bg-blue-50 transition">
-                            <input type="radio" name="mode" value="random" onchange="generateBatch()" class="mb-1">
-                            <span class="text-xs font-bold text-center">進階隨機</span>
-                            <span class="text-[10px] text-slate-500 text-center">跳號數列</span>
+                        <label class="flex flex-col p-2.5 bg-white rounded-xl border cursor-pointer hover:border-blue-300 transition">
+                            <input type="radio" name="mode" value="random" onchange="generateBatch()" class="mb-2 w-4 h-4 text-blue-600">
+                            <span class="text-xs font-bold text-center">隨機數列</span>
                         </label>
                     </div>
-                    <div class="mt-3 space-y-2">
-                        <label class="flex items-center gap-2 cursor-pointer text-sm">
-                            <input type="checkbox" id="allowRotation" onchange="generateBatch()" class="w-4 h-4"> 數字旋轉 (空間辨識)
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer text-sm">
+                            <input type="checkbox" id="allowRotation" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 數字旋轉
                         </label>
-                        <label class="flex items-center gap-2 cursor-pointer text-sm">
-                            <input type="checkbox" id="allowColor" onchange="generateBatch()" class="w-4 h-4"> 背景顏色 (視覺干擾)
+                        <label class="flex items-center gap-3 cursor-pointer text-sm">
+                            <input type="checkbox" id="allowColor" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 背景顏色
                         </label>
                     </div>
                 </div>
 
-                <!-- 第三欄 -->
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <h3 class="text-sm font-bold text-slate-700 mb-3 border-l-4 border-emerald-500 pl-2">視覺大小</h3>
+                <!-- 視覺大小 -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-4 border-l-4 border-emerald-500 pl-2">視覺大小</h3>
                     <div>
-                        <div class="flex justify-between text-sm mb-1">
-                            <span>圓圈直徑</span>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>圓圈大小</span>
                             <span class="font-bold text-blue-600"><span id="val_dotSize">70</span>px</span>
                         </div>
-                        <input type="range" id="dotSize" class="w-full" value="70" min="35" max="110" oninput="checkCapacity()">
+                        <input type="range" id="dotSize" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value="70" min="35" max="110" oninput="checkCapacity()">
                     </div>
-                    <div class="mt-3">
-                        <label class="text-sm block mb-1">一次產生份數</label>
-                        <input type="number" id="copyCount" value="1" min="1" max="20" class="w-full px-3 py-1 rounded border text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <div class="mt-4">
+                        <label class="text-sm font-medium block mb-2 text-slate-600">一次產生份數</label>
+                        <input type="number" id="copyCount" value="1" min="1" max="20" class="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-400 outline-none transition">
                     </div>
                 </div>
             </div>
             
-            <div class="mt-4 pt-4 border-t text-center">
-                <a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-xs text-slate-400 hover:text-blue-600 transition underline underline-offset-4">設計：職能治療師 - 鄭凱文</a>
+            <div class="mt-6 py-4 border-t border-slate-100 text-center">
+                <a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-xs text-slate-400 hover:text-blue-600 transition underline underline-offset-8 font-medium">設計：職能治療師 - 鄭凱文</a>
             </div>
         </div>
     </div>
 
-    <!-- 面板隱藏/顯示觸發器 -->
-    <div id="togglePanel" class="control-trigger no-print font-bold text-xs">
-        <span id="trigger-text">隱藏設定選單</span>
+    <!-- 浮動控制按鈕 -->
+    <div id="togglePanel" class="control-trigger no-print font-bold">
+        <span id="trigger-icon">⚙️</span>
+        <span id="trigger-text">隱藏設定</span>
     </div>
 
     <!-- 預覽區域 -->
     <div id="preview-area">
         <div id="pagesContainer" class="w-full flex flex-col items-center">
-            <!-- 動態生成頁面 -->
+            <!-- 內容由 JS 生成 -->
         </div>
     </div>
 
@@ -260,16 +254,36 @@
         const controls = document.getElementById('controls');
         const trigger = document.getElementById('togglePanel');
         const triggerText = document.getElementById('trigger-text');
+        const triggerIcon = document.getElementById('trigger-icon');
         
+        // 切換控制面板顯示/隱藏
         trigger.onclick = () => {
-            controls.classList.toggle('collapsed');
-            if (controls.classList.contains('collapsed')) {
-                triggerText.innerText = "顯示設定選單";
-                trigger.style.top = "0";
-            } else {
-                triggerText.innerText = "隱藏設定選單";
-            }
+            const isCollapsed = controls.classList.toggle('collapsed');
+            triggerText.innerText = isCollapsed ? "顯示設定" : "隱藏設定";
+            triggerIcon.innerText = isCollapsed ? "🛠️" : "⚙️";
         };
+
+        // 自動縮放預覽頁面以貼合螢幕
+        function adjustScaling() {
+            const wrappers = document.querySelectorAll('.a4-wrapper');
+            const containerWidth = document.getElementById('preview-area').clientWidth - 30;
+            const a4WidthMm = 210;
+            const pxPerMm = 3.78; // 96dpi 下 1mm 約等於 3.78px
+            const a4WidthPx = a4WidthMm * pxPerMm;
+            const a4HeightPx = 297 * pxPerMm;
+
+            let scale = containerWidth / a4WidthPx;
+            if (scale > 1) scale = 1; // 最大不超過 100%
+
+            wrappers.forEach(wrapper => {
+                const page = wrapper.querySelector('.a4-page');
+                if (page) {
+                    page.style.transform = `scale(${scale})`;
+                    // 動態設定 wrapper 高度，避免縮放後下方出現大片空白
+                    wrapper.style.height = (a4HeightPx * scale) + 'px';
+                }
+            });
+        }
 
         function updateStyles() {
             const size = document.getElementById('dotSize').value;
@@ -283,10 +297,8 @@
             const noiseEl = document.getElementById('noiseCount');
             const dotSize = parseInt(document.getElementById('dotSize').value);
 
-            // A4 內容區估算 (180mm x 200mm)
             const approxWidth = 680; 
             const approxHeight = 700;
-            
             const safeDistance = dotSize * 1.35; 
             const maxCols = Math.floor(approxWidth / safeDistance);
             const maxRows = Math.floor(approxHeight / safeDistance);
@@ -317,8 +329,7 @@
             const container = document.getElementById('pagesContainer');
             const copyCount = Math.min(20, parseInt(document.getElementById('copyCount').value) || 1);
             
-            // 避免頻繁重建 DOM 造成的卡頓
-            container.innerHTML = '<div class="no-print py-20 loading-text text-xl font-bold text-slate-300">正在優化佈局中...</div>';
+            container.innerHTML = '<div class="no-print py-20 loading-text text-xl font-bold text-slate-300">正在精密佈局中...</div>';
             
             setTimeout(() => {
                 container.innerHTML = '';
@@ -327,6 +338,7 @@
                     container.appendChild(data.wrapper);
                     renderItems(data);
                 }
+                adjustScaling(); // 生成完畢後立即調整縮放
             }, 100);
         }
 
@@ -359,8 +371,8 @@
                 }
                 seqHtml = `
                     <div class="mt-2">
-                        <p class="text-[10px] text-slate-400 italic mb-1 text-center">連線順序：</p>
-                        <div class="text-xl font-black tracking-widest text-center border-2 border-dashed border-slate-300 p-2 bg-slate-50 rounded">
+                        <p class="text-[10px] text-slate-400 mb-1 text-center font-bold">連線順序：</p>
+                        <div class="text-xl font-black tracking-widest text-center border-2 border-dashed border-slate-300 p-2 bg-slate-50 rounded-lg">
                             ${targetNumbers.join(' → ')}
                         </div>
                     </div>
@@ -371,7 +383,7 @@
                 <div class="header-section text-center">
                     <h2 class="text-4xl font-bold mb-4 tracking-tighter">數字連線測驗</h2>
                     <div class="bg-white p-4 border-2 border-black rounded-xl">
-                        <p class="text-lg font-bold text-black italic">作答說明：${instructionText}</p>
+                        <p class="text-lg font-bold text-black">作答說明：${instructionText}</p>
                         ${seqHtml}
                     </div>
                     <div class="flex justify-between text-lg mt-6 px-4 font-bold border-b-2 border-black pb-2">
@@ -407,12 +419,12 @@
         function renderItems(data) {
             const { board, items, allowRotation, allowColor } = data;
             const dotSize = parseInt(document.getElementById('dotSize').value);
-            const bWidth = board.clientWidth || 680;
-            const bHeight = board.clientHeight || 730;
+            const bWidth = 680; // 基準寬度
+            const bHeight = 730; // 基準高度
             
             const colors = ['#f1f5f9', '#fee2e2', '#fef3c7', '#dcfce7', '#dbeafe', '#f3e8ff'];
             const placed = [];
-            const minDist = dotSize * 1.2;
+            const minDist = dotSize * 1.25;
 
             items.forEach(item => {
                 const el = document.createElement('div');
@@ -432,7 +444,6 @@
                 while (attempts < 1000) {
                     x = Math.random() * (bWidth - dotSize - 20) + 10;
                     y = Math.random() * (bHeight - dotSize - 20) + 10;
-                    
                     const tooClose = placed.some(p => Math.hypot(p.x - x, p.y - y) < minDist);
                     if (!tooClose) break;
                     attempts++;
@@ -445,17 +456,15 @@
             });
         }
 
-        window.onload = () => {
-            checkCapacity();
-        };
-
-        // 監聽視窗大小變化以修正手機端縮放
+        // 監聽視窗縮放
         let resizeTimer;
         window.onresize = () => {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                location.reload(); // 簡單處理：手機旋轉時重新計算縮放
-            }, 300);
+            resizeTimer = setTimeout(adjustScaling, 100);
+        };
+
+        window.onload = () => {
+            checkCapacity();
         };
     </script>
 </body>
