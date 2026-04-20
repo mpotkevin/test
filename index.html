@@ -128,18 +128,45 @@
 
         /* --- 列印修正 --- */
         @media print {
-            @page { size: A4; margin: 0; }
-            body { background: white; padding: 0; }
-            #controls, .no-print, .control-trigger { display: none !important; }
-            #preview-area { padding: 0 !important; margin: 0 !important; }
-            .a4-wrapper { height: auto !important; margin: 0 !important; display: block !important; }
+            @page { 
+                size: A4; 
+                margin: 0; 
+            }
+            html, body { 
+                height: 100%;
+                margin: 0 !important; 
+                padding: 0 !important; 
+                background: white; 
+                overflow: visible !important;
+            }
+            #controls, .no-print, .control-trigger { 
+                display: none !important; 
+            }
+            #preview-area { 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                display: block !important;
+            }
+            .a4-wrapper { 
+                height: auto !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+                display: block !important; 
+                page-break-inside: avoid;
+            }
             .a4-page {
                 transform: none !important;
                 box-shadow: none !important;
                 margin: 0 !important;
+                display: flex !important;
                 page-break-after: always;
+                break-after: page;
             }
-            .a4-page:last-child { page-break-after: avoid; }
+            /* 修正最後一頁多出空白的問題 */
+            .a4-wrapper:last-child .a4-page { 
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }
         }
 
         @keyframes pulse {
@@ -160,7 +187,6 @@
                     <p class="text-xs text-slate-500">專為職能訓練與視覺搜尋設計</p>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
-                    <!-- 更改 onclick 增加自動收合功能 -->
                     <button onclick="generateBatch(); hideControls();" class="flex-1 md:flex-none bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition active:scale-95 shadow-md text-sm">
                         🔄 生成紙本
                     </button>
@@ -315,10 +341,14 @@
 
             const approxWidth = 680; 
             const approxHeight = 700;
-            const safeDistance = dotSize * 1.35; 
+            
+            // 隨機佈局需要更大的間距緩衝，否則容易發生碰撞死路
+            const safeDistance = dotSize * 1.5; 
             const maxCols = Math.floor(approxWidth / safeDistance);
             const maxRows = Math.floor(approxHeight / safeDistance);
-            const totalMax = Math.max(5, Math.floor(maxCols * maxRows * 0.75));
+            
+            // 隨機密度係數調降，確保佈局在極限情況下依然能成功
+            const totalMax = Math.max(5, Math.floor(maxCols * maxRows * 0.55));
 
             const currentTarget = parseInt(targetEl.value);
             const currentNoise = parseInt(noiseEl.value);
@@ -436,12 +466,13 @@
         function renderItems(data) {
             const { board, items, allowRotation, allowColor } = data;
             const dotSize = parseInt(document.getElementById('dotSize').value);
-            const bWidth = 680; 
-            const bHeight = 730; 
+            const bWidth = board.clientWidth || 680; 
+            const bHeight = board.clientHeight || 730; 
             
             const colors = ['#f1f5f9', '#fee2e2', '#fef3c7', '#dcfce7', '#dbeafe', '#f3e8ff'];
             const placed = [];
-            const minDist = dotSize * 1.25;
+            // 加大碰撞距離，防止視覺重疊
+            const minDist = dotSize * 1.35;
 
             items.forEach(item => {
                 const el = document.createElement('div');
@@ -458,9 +489,12 @@
                 }
 
                 let x, y, attempts = 0;
-                while (attempts < 1000) {
-                    x = Math.random() * (bWidth - dotSize - 20) + 10;
-                    y = Math.random() * (bHeight - dotSize - 20) + 10;
+                const margin = 15;
+                // 大幅增加尋找次數，提升佈局密度較高時的成功率
+                while (attempts < 2000) {
+                    x = Math.random() * (bWidth - dotSize - (margin * 2)) + margin;
+                    y = Math.random() * (bHeight - dotSize - (margin * 2)) + margin;
+                    
                     const tooClose = placed.some(p => Math.hypot(p.x - x, p.y - y) < minDist);
                     if (!tooClose) break;
                     attempts++;
