@@ -195,21 +195,23 @@
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                     <h3 class="text-sm font-bold text-slate-700 mb-4 border-l-4 border-amber-500 pl-2">挑戰模式</h3>
                     <div class="grid grid-cols-2 gap-3 mb-4">
-                        <label class="flex flex-col p-2.5 bg-white rounded-xl border cursor-pointer hover:border-blue-300 transition">
-                            <input type="radio" name="mode" value="sequential" checked onchange="generateBatch()" class="mb-2 w-4 h-4 text-blue-600">
-                            <span class="text-xs font-bold text-center">1, 2, 3...</span>
+                        <label class="flex flex-col p-3 bg-white rounded-xl border-2 cursor-pointer hover:border-blue-400 transition">
+                            <input type="radio" name="mode" value="sequential" checked onchange="generateBatch()" class="mb-2 w-5 h-5 text-blue-600">
+                            <span class="text-base font-bold text-center text-slate-800">基礎序列</span>
+                            <span class="text-[10px] text-blue-500 text-center font-medium">(1, 2, 3...)</span>
                         </label>
-                        <label class="flex flex-col p-2.5 bg-white rounded-xl border cursor-pointer hover:border-blue-300 transition">
-                            <input type="radio" name="mode" value="random" onchange="generateBatch()" class="mb-2 w-4 h-4 text-blue-600">
-                            <span class="text-xs font-bold text-center">隨機數列</span>
+                        <label class="flex flex-col p-3 bg-white rounded-xl border-2 cursor-pointer hover:border-blue-400 transition">
+                            <input type="radio" name="mode" value="random" onchange="generateBatch()" class="mb-2 w-5 h-5 text-blue-600">
+                            <span class="text-base font-bold text-center text-slate-800">隨機序列</span>
+                            <span class="text-[10px] text-amber-600 text-center font-medium">(指定數列)</span>
                         </label>
                     </div>
                     <div class="space-y-3">
                         <label class="flex items-center gap-3 cursor-pointer text-sm">
-                            <input type="checkbox" id="allowRotation" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 數字旋轉
+                            <input type="checkbox" id="allowRotation" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 數字旋轉干擾
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer text-sm">
-                            <input type="checkbox" id="allowColor" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 背景顏色
+                            <input type="checkbox" id="allowColor" onchange="generateBatch()" class="w-5 h-5 rounded-md border-slate-300"> 顏色干擾
                         </label>
                     </div>
                 </div>
