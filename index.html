@@ -131,7 +131,7 @@
                                 <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">線條粗細</label>
                                 <span id="label-thickness" class="text-sm font-bold text-blue-600">5px</span>
                             </div>
-                            <input type="range" min="0.5" max="20" step="0.5" value="5" oninput="updateState({thickness: this.value})" class="w-full cursor-pointer">
+                            <input type="range" min="1" max="30" step="1" value="5" oninput="updateState({thickness: this.value})" class="w-full cursor-pointer">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -140,14 +140,14 @@
                                     <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">橫向片數</label>
                                     <span id="label-cols" class="text-sm font-bold text-blue-600">4</span>
                                 </div>
-                                <input type="range" min="2" max="25" value="4" oninput="updateState({cols: this.value})" class="w-full cursor-pointer">
+                                <input type="range" min="2" max="10" value="4" oninput="updateState({cols: this.value})" class="w-full cursor-pointer">
                             </div>
                             <div>
                                 <div class="flex justify-between items-end mb-2">
                                     <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">縱向片數</label>
                                     <span id="label-rows" class="text-sm font-bold text-blue-600">4</span>
                                 </div>
-                                <input type="range" min="2" max="25" value="4" oninput="updateState({rows: this.value})" class="w-full cursor-pointer">
+                                <input type="range" min="2" max="10" value="4" oninput="updateState({rows: this.value})" class="w-full cursor-pointer">
                             </div>
                         </div>
                         <button onclick="state.seed = Math.random(); draw();" class="w-full py-2.5 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:bg-slate-50 active:bg-slate-100 transition uppercase tracking-widest">重新隨機路徑</button>
