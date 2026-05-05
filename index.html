@@ -83,7 +83,8 @@
                             <p class="text-sm font-medium text-slate-600">點擊上傳圖片</p>
                         </div>
                         <div id="file-info" class="hidden text-sm text-blue-600 font-bold truncate italic"></div>
-                    </section>
+                    </div>
+                </section>
 
                 <!-- Step 2: 設定 -->
                 <section id="section-2" class="step-card disabled p-5 rounded-2xl bg-white border border-slate-200">
@@ -131,7 +132,7 @@
                                 <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">線條粗細</label>
                                 <span id="label-thickness" class="text-sm font-bold text-blue-600">5px</span>
                             </div>
-                            <input type="range" min="1" max="30" step="1" value="5" oninput="updateState({thickness: this.value})" class="w-full cursor-pointer">
+                            <input type="range" min="0.5" max="20" step="0.5" value="5" oninput="updateState({thickness: this.value})" class="w-full cursor-pointer">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -140,14 +141,14 @@
                                     <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">橫向片數</label>
                                     <span id="label-cols" class="text-sm font-bold text-blue-600">4</span>
                                 </div>
-                                <input type="range" min="2" max="10" value="4" oninput="updateState({cols: this.value})" class="w-full cursor-pointer">
+                                <input type="range" min="2" max="25" value="4" oninput="updateState({cols: this.value})" class="w-full cursor-pointer">
                             </div>
                             <div>
                                 <div class="flex justify-between items-end mb-2">
                                     <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">縱向片數</label>
                                     <span id="label-rows" class="text-sm font-bold text-blue-600">4</span>
                                 </div>
-                                <input type="range" min="2" max="10" value="4" oninput="updateState({rows: this.value})" class="w-full cursor-pointer">
+                                <input type="range" min="2" max="25" value="4" oninput="updateState({rows: this.value})" class="w-full cursor-pointer">
                             </div>
                         </div>
                         <button onclick="state.seed = Math.random(); draw();" class="w-full py-2.5 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:bg-slate-50 active:bg-slate-100 transition uppercase tracking-widest">重新隨機路徑</button>
@@ -328,7 +329,6 @@
                     fileInfo.classList.remove('hidden');
                     updateState({});
                     
-                    // 手機端自動滾動到預覽區
                     if (window.innerWidth < 768) {
                         setTimeout(() => {
                             canvasWrapper.scrollIntoView({ behavior: 'smooth' });
@@ -408,13 +408,22 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (state.previewPage === 1) {
+                // 頁 1：拼圖預覽
                 ctx.save();
                 ctx.translate(canvas.width / 2, canvas.height / 2);
                 ctx.rotate((state.rotation * Math.PI) / 180);
                 ctx.drawImage(img, -img.width / 2, -img.height / 2);
                 ctx.restore();
+                
+                // 繪製切割線
                 drawLines(ctx, canvas.width, canvas.height);
+                
+                // 新增：繪製拼圖邊框（與底圖一致）
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = Math.max(state.thickness, 2.5); 
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
             } else {
+                // 頁 2：輔助底圖
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 drawLines(ctx, canvas.width, canvas.height, "#cccccc");
@@ -471,6 +480,10 @@
                     tCtx.drawImage(state.image, -state.image.width / 2, -state.image.height / 2);
                     tCtx.restore();
                     drawLines(tCtx, currentW, currentH);
+                    // 匯出時也加入拼圖頁面的黑邊
+                    tCtx.strokeStyle = "#000000";
+                    tCtx.lineWidth = Math.max(state.thickness, 2.5);
+                    tCtx.strokeRect(0, 0, currentW, currentH);
                 } else {
                     tCtx.fillStyle = "#ffffff";
                     tCtx.fillRect(0, 0, currentW, currentH);
@@ -509,7 +522,39 @@
             pdf.save(`puzzle-maker-${Date.now()}.pdf`);
         }
 
-        // 拖放支援
+        dropZone.onclick = () => document.getElementById('img-input').click();
+        
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.image = img;
+                    state.seed = Math.random();
+                    state.rotation = 0;
+                    document.getElementById('section-2').classList.remove('disabled');
+                    document.getElementById('section-3').classList.remove('disabled');
+                    emptyState.classList.add('hidden');
+                    canvasWrapper.classList.remove('hidden');
+                    previewTabs.classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                    const fileInfo = document.getElementById('file-info');
+                    fileInfo.innerText = file.name;
+                    fileInfo.classList.remove('hidden');
+                    updateState({});
+                    
+                    if (window.innerWidth < 768) {
+                        setTimeout(() => {
+                            canvasWrapper.scrollIntoView({ behavior: 'smooth' });
+                        }, 300);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
         dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-blue-50'); };
         dropZone.ondragleave = () => { dropZone.classList.remove('border-blue-500', 'bg-blue-50'); };
         dropZone.ondrop = (e) => {
