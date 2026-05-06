@@ -1,540 +1,590 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自製拼圖產生器</title>
+    <title>猜拳認知挑戰</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #1e293b; -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        :root {
+            --vh: 1vh;
+        }
 
-        .step-card {
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: manipulation;
+            background-color: #f0fdf4;
+            height: 100vh;
+            height: calc(var(--vh, 1vh) * 100);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
         }
-        .step-card.active {
-            border-color: #3b82f6;
-            background-color: #ffffff;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+        /* 換題時的彈入動畫 */
+        @keyframes pop-in {
+            0% { opacity: 0; transform: scale(0.3); }
+            70% { transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
         }
-        .step-card.disabled {
-            opacity: 0.5;
+        .animate-pop-in {
+            animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+
+        /* 強化版閃爍回饋 */
+        .correct-flash { animation: flash-green 0.4s ease-out; }
+        .wrong-flash { animation: flash-red 0.4s ease-out; }
+        
+        @keyframes flash-green {
+            0%, 100% { background-color: #f0fdf4; }
+            50% { background-color: rgba(34, 197, 94, 0.4); }
+        }
+        @keyframes flash-red {
+            0%, 100% { background-color: #f0fdf4; }
+            50% { background-color: rgba(239, 68, 68, 0.4); }
+        }
+
+        #feedback-overlay {
             pointer-events: none;
-            filter: grayscale(1);
-        }
-        
-        #preview-container {
-            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-
-        /* 確保 Canvas 在手機上正確縮放 */
-        canvas {
-            max-width: 100% !important;
-            height: auto !important;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            background-color: white;
-            display: block;
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
         }
 
-        input[type="range"] { accent-color: #3b82f6; height: 1.5rem; }
-        .export-option:checked + label {
-            background-color: #eff6ff;
-            border-color: #3b82f6;
-            color: #1e40af;
+        .custom-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.5em;
+        }
+
+        .progress-bar-fill { transition: width 0.1s linear; }
+
+        .animate-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        #pause-overlay {
+            background-color: transparent;
+            backdrop-filter: none;
+            pointer-events: all;
+            cursor: default;
         }
     </style>
 </head>
-<body class="flex flex-col md:h-screen md:overflow-hidden min-h-screen">
+<body class="flex flex-col items-center">
 
-    <!-- 頂部標題列 -->
-    <header class="h-16 flex-none bg-white border-b border-slate-200 px-6 flex items-center justify-between z-50 sticky top-0">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xl shadow-sm">P</div>
-            <h1 class="text-xl font-bold tracking-tight">自製拼圖產生器</h1>
+    <div id="feedback-overlay">
+        <div id="feedback-icon" class="text-[15rem] font-black opacity-80"></div>
+    </div>
+
+    <!-- 頂部資訊 -->
+    <header class="w-full max-w-6xl px-4 py-2 flex justify-between items-center bg-white shadow-sm z-50 shrink-0">
+        <div class="flex flex-col">
+            <h1 class="text-lg font-bold text-green-700 leading-tight text-nowrap">活力腦猜拳</h1>
+            <div id="game-status" class="text-[10px] text-gray-400">認知功能訓練</div>
+        </div>
+        
+        <div id="game-controls-top" class="hidden flex items-center gap-2">
+            <button id="pause-btn" class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-xs hover:bg-amber-200 transition">⏸ 暫停</button>
+            <button id="stop-btn" class="px-3 py-1 bg-red-100 text-red-700 rounded-full font-bold text-xs hover:bg-red-200 transition">⏹ 結束</button>
+        </div>
+
+        <div class="flex items-center gap-3 text-right">
+            <div>
+                <div class="text-xl font-bold text-blue-600 leading-none" id="timer-display">--:--</div>
+                <div class="text-[10px] text-gray-400">分數: <span id="score-display">0</span></div>
+            </div>
+            <button id="settings-btn" class="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+    <div id="autoplay-progress" class="w-full h-1.5 bg-gray-100 hidden shrink-0">
+        <div id="autoplay-progress-fill" class="h-full bg-blue-500 progress-bar-fill" style="width: 0%"></div>
+    </div>
+
+    <!-- 遊戲主區 -->
+    <main id="game-area" class="flex-grow w-full max-w-6xl flex flex-col items-center justify-center p-2 relative overflow-hidden">
         
-        <!-- 左側控制區 -->
-        <aside class="w-full md:w-[380px] flex-none border-r border-slate-200 bg-slate-50 overflow-y-auto p-4 md:p-6 space-y-6 z-30">
-            
-            <div class="space-y-6 pb-8">
-                <!-- Step 1: 上傳 -->
-                <section id="section-1" class="step-card active p-5 rounded-2xl bg-white border border-slate-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-                        <h2 class="font-bold text-slate-800">上傳圖片</h2>
-                    </div>
-                    <div id="drop-zone" class="relative group border-2 border-dashed border-slate-200 rounded-xl p-4 transition-all hover:border-blue-400 hover:bg-blue-50 cursor-pointer text-center">
-                        <input type="file" id="img-input" class="hidden" accept="image/*" onchange="handleFile(this.files[0])">
-                        <div id="upload-placeholder">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <p class="text-sm font-medium text-slate-600">點擊上傳圖片</p>
-                        </div>
-                        <div id="file-info" class="hidden text-sm text-blue-600 font-bold truncate italic"></div>
-                    </div>
-                </section>
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="text-center bg-white p-8 rounded-[2.5rem] shadow-xl max-w-sm w-full mx-auto">
+            <div class="mb-4 text-7xl">✊✋✌️</div>
+            <h2 class="text-3xl font-black mb-2 text-gray-800">活力腦猜拳</h2>
+            <p class="text-gray-400 mb-8 font-medium">訓練大腦反應，延緩老化</p>
+            <button id="start-game-btn" class="w-full py-4 bg-green-600 text-white text-2xl font-bold rounded-2xl hover:bg-green-700 shadow-lg transition-all active:scale-95">
+                開始活動
+            </button>
+        </div>
 
-                <!-- Step 2: 設定 -->
-                <section id="section-2" class="step-card disabled p-5 rounded-2xl bg-white border border-slate-200">
-                    <div class="flex items-center gap-3 mb-6">
-                        <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
-                        <h2 class="font-bold text-slate-800">參數設定</h2>
-                    </div>
+        <!-- 遊戲舞台 -->
+        <div id="stage" class="hidden w-full h-full flex flex-col items-center justify-start py-2 relative overflow-hidden">
+            <div id="pause-overlay" class="hidden absolute inset-0 z-[60] rounded-3xl"></div>
 
-                    <div class="space-y-5">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">切割樣式</label>
-                                <div class="flex gap-1 p-1 bg-slate-100 rounded-lg">
-                                    <button onclick="updateState({mode: 'grid'})" id="btn-grid" class="flex-1 py-1.5 text-xs rounded bg-white shadow-sm font-bold text-blue-600 transition-all">網格</button>
-                                    <button onclick="updateState({mode: 'slant'})" id="btn-slant" class="flex-1 py-1.5 text-xs rounded text-slate-500 hover:bg-white/50 font-medium transition-all">斜線</button>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">圖片旋轉</label>
-                                <button onclick="rotateImage()" class="w-full h-8 flex items-center justify-center gap-2 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition bg-white">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    旋轉 90°
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">線條顏色</label>
-                                <input type="color" id="input-color" value="#000000" oninput="updateState({lineColor: this.value})" class="w-full h-8 rounded border-none cursor-pointer bg-transparent">
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">PDF 方向</label>
-                                <div class="flex gap-1 p-1 bg-slate-100 rounded-lg">
-                                    <button onclick="updateState({pdfOrientation: 'p'})" id="btn-port" class="flex-1 py-1.5 text-[10px] rounded bg-white shadow-sm font-bold text-blue-600">直式</button>
-                                    <button onclick="updateState({pdfOrientation: 'l'})" id="btn-land" class="flex-1 py-1.5 text-[10px] rounded text-slate-500 hover:bg-white/50 font-medium">橫式</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="flex justify-between items-end mb-2">
-                                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">線條粗細</label>
-                                <span id="label-thickness" class="text-sm font-bold text-blue-600">5px</span>
-                            </div>
-                            <!-- 每次調整 step 改為 1, 最高到 30px -->
-                            <input type="range" min="1" max="30" step="1" value="5" oninput="updateState({thickness: this.value})" class="w-full cursor-pointer">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <div class="flex justify-between items-end mb-2">
-                                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">橫向片數</label>
-                                    <span id="label-cols" class="text-sm font-bold text-blue-600">4</span>
-                                </div>
-                                <!-- 最高到 10 -->
-                                <input type="range" min="2" max="10" value="4" oninput="updateState({cols: this.value})" class="w-full cursor-pointer">
-                            </div>
-                            <div>
-                                <div class="flex justify-between items-end mb-2">
-                                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">縱向片數</label>
-                                    <span id="label-rows" class="text-sm font-bold text-blue-600">4</span>
-                                </div>
-                                <!-- 最高到 10 -->
-                                <input type="range" min="2" max="10" value="4" oninput="updateState({rows: this.value})" class="w-full cursor-pointer">
-                            </div>
-                        </div>
-                        <button onclick="state.seed = Math.random(); draw();" class="w-full py-2.5 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:bg-slate-50 active:bg-slate-100 transition uppercase tracking-widest">重新隨機路徑</button>
-                    </div>
-                </section>
-
-                <!-- Step 3: 下載 -->
-                <section id="section-3" class="step-card disabled p-5 rounded-2xl bg-white border border-slate-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">3</span>
-                        <h2 class="font-bold text-slate-800">匯出檔案</h2>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">匯出內容</label>
-                        <div class="flex gap-2">
-                            <div class="flex-1">
-                                <input type="radio" id="export-both" name="export-scope" value="both" checked class="hidden export-option" onchange="state.exportScope = 'both'">
-                                <label for="export-both" class="block text-center py-2 text-[10px] font-bold rounded-lg border border-slate-200 cursor-pointer text-slate-500 transition-all">全部</label>
-                            </div>
-                            <div class="flex-1">
-                                <input type="radio" id="export-puzzle" name="export-scope" value="puzzle" class="hidden export-option" onchange="state.exportScope = 'puzzle'">
-                                <label for="export-puzzle" class="block text-center py-2 text-[10px] font-bold rounded-lg border border-slate-200 cursor-pointer text-slate-500 transition-all">僅拼圖</label>
-                            </div>
-                            <div class="flex-1">
-                                <input type="radio" id="export-map" name="export-scope" value="map" class="hidden export-option" onchange="state.exportScope = 'map'">
-                                <!-- 僅底圖文字改為僅底版 -->
-                                <label for="export-map" class="block text-center py-2 text-[10px] font-bold rounded-lg border border-slate-200 cursor-pointer text-slate-500 transition-all">僅底版</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button onclick="exportPDF()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-                        </svg>
-                        下載 PDF 檔案
-                    </button>
-                </section>
-
-                <!-- 頁尾 -->
-                <footer class="pt-4 border-t border-slate-200 text-center">
-                    <p class="text-slate-400 text-sm">設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-blue-600 font-bold hover:underline">職能治療師 - 鄭凱文</a></p>
-                </footer>
+            <!-- 抬頭資訊 -->
+            <div id="stage-banner" class="flex items-center gap-2 mb-2 z-10 shrink-0">
+                <div id="question-index-label" class="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">第 1 回合</div>
+                <div id="instruction-banner" class="px-5 py-1 bg-yellow-100 border-2 border-yellow-400 rounded-full text-xl md:text-2xl font-black text-yellow-800">請猜贏！</div>
             </div>
 
-        </aside>
-
-        <!-- 右側預覽區 -->
-        <div id="preview-container" class="flex-1 relative flex flex-col items-center justify-start overflow-visible md:overflow-auto bg-slate-50">
-            
-            <!-- 預覽切換 Tab -->
-            <div id="preview-tabs-container" class="hidden sticky top-0 w-full z-40 flex justify-center py-4 bg-slate-50/95 backdrop-blur border-b border-slate-200 px-4">
-                <div class="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full max-w-sm">
-                    <button onclick="updatePreviewPage(1)" id="tab-1" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-600 text-white shadow-sm">頁 1：拼圖預覽</button>
-                    <!-- 僅底圖文字改為僅底版 -->
-                    <button onclick="updatePreviewPage(2)" id="tab-2" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700">頁 2：輔助底版</button>
-                </div>
-            </div>
-
-            <!-- 未上傳時的狀態 -->
-            <div id="empty-state" class="flex-1 min-h-[300px] flex flex-col items-center justify-center text-center max-w-sm px-6 py-12">
-                <div class="w-16 h-16 bg-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <h3 class="text-base font-bold text-slate-800 mb-2">等待圖片上傳...</h3>
-                <p class="text-xs text-slate-500 leading-relaxed">請從上方上傳照片以預覽拼圖。</p>
-            </div>
-
-            <!-- 預覽畫布容器 -->
-            <div id="canvas-wrapper" class="hidden p-4 md:p-12 flex flex-col items-center w-full">
-                <div class="w-full flex justify-center">
-                    <canvas id="preview-canvas" class="transition-opacity duration-300"></canvas>
-                </div>
-                
-                <!-- 底部資訊列 -->
-                <div id="canvas-info" class="mt-6 bg-slate-800/90 backdrop-blur px-5 py-2 rounded-full text-[10px] text-white/80 font-mono tracking-widest uppercase flex items-center gap-4 shadow-xl">
-                    <span id="info-res">0 x 0 PX</span>
-                    <span class="w-px h-3 bg-white/20"></span>
-                    <span id="info-mode">GRID</span>
-                </div>
+            <!-- 題目容器 -->
+            <div id="question-container" class="w-full flex-grow flex items-center justify-center relative overflow-hidden">
+                <!-- 動態內容 -->
             </div>
         </div>
 
+        <!-- 結算畫面 -->
+        <div id="result-screen" class="hidden text-center bg-white p-8 rounded-[2.5rem] shadow-xl max-w-xs w-full mx-auto">
+            <h2 class="text-3xl font-bold text-blue-600 mb-4">活動完成！</h2>
+            <div class="text-7xl mb-4">🎊</div>
+            <div class="text-xl text-gray-400">本次得分</div>
+            <div class="text-6xl font-black text-gray-800 mb-8" id="final-score">0</div>
+            <button id="restart-btn" class="w-full py-4 bg-blue-600 text-white text-2xl font-bold rounded-2xl shadow-lg">再試一次</button>
+        </div>
     </main>
 
+    <!-- 下方作答按鈕 -->
+    <footer id="controls" class="hidden w-full max-w-md p-2 grid grid-cols-3 gap-3 z-40 mb-2 shrink-0">
+        <button data-move="rock" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
+            <span class="text-3xl">✊</span>
+            <span class="text-xs font-bold mt-1">石頭</span>
+        </button>
+        <button data-move="scissors" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
+            <span class="text-3xl">✌️</span>
+            <span class="text-xs font-bold mt-1">剪刀</span>
+        </button>
+        <button data-move="paper" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
+            <span class="text-3xl">✋</span>
+            <span class="text-xs font-bold mt-1">布</span>
+        </button>
+    </footer>
+
+    <div id="designer-info" class="w-full py-2 text-center text-[10px] text-gray-400 shrink-0">
+        設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-blue-300 font-medium underline underline-offset-2">職能治療師 - 鄭凱文</a>
+    </div>
+
+    <!-- 設定視窗 -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-sm:w-full max-w-sm rounded-[2rem] p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-gray-800">活動設定</h3>
+                <button id="close-settings" class="text-gray-400 text-3xl leading-none">&times;</button>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">活動模式</label>
+                    <select id="setting-mode" class="custom-select w-full p-4 border-2 border-gray-100 rounded-xl bg-gray-50 focus:border-green-500 outline-none font-bold text-gray-700">
+                        <option value="single">單手猜拳</option>
+                        <option value="double">雙手猜拳</option>
+                        <option value="limbs">上下肢猜拳</option>
+                        <option value="sequence">連續猜拳</option>
+                    </select>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-2xl space-y-4 border border-blue-100 shadow-inner">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-bold text-blue-800">自動播放模式</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setting-autoplay" class="sr-only peer">
+                            <div class="w-12 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="autoplay-configs" class="hidden space-y-4 pt-4 border-t border-blue-200">
+                        <div>
+                            <label class="block text-[10px] font-bold text-blue-700 mb-1">停留秒數：<span id="val-per-item">5</span>s</label>
+                            <input type="range" id="setting-item-duration" min="1" max="10" step="1" value="5" class="w-full h-1.5 bg-blue-200 rounded-lg accent-blue-600">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-blue-700 mb-1">播放總題數：<span id="val-total-items">10</span>題</label>
+                            <input type="range" id="setting-total-items" min="5" max="30" step="5" value="10" class="w-full h-1.5 bg-blue-200 rounded-lg accent-blue-600">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="manual-configs">
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">任務目標</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button data-target="win" class="target-opt p-2 border-2 border-green-500 bg-green-50 rounded-xl text-green-700 font-bold text-sm">要猜贏</button>
+                            <button data-target="draw" class="target-opt p-2 border-2 border-gray-100 rounded-xl text-gray-400 font-bold text-sm">要平手</button>
+                            <button data-target="lose" class="target-opt p-2 border-2 border-gray-100 rounded-xl text-gray-400 font-bold text-sm">要猜輸</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">挑戰時間 (秒)</label>
+                        <input type="range" id="setting-time" min="10" max="120" step="10" value="60" class="w-full h-1.5 bg-gray-200 rounded-lg accent-green-600">
+                        <div class="flex justify-between text-[10px] text-gray-400 mt-1"><span class="font-bold text-green-600" id="time-val-display">60s</span><span>120s</span></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                    <span class="text-xs font-bold text-gray-500">顯示參考答案</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-hints" class="sr-only peer">
+                        <div class="w-12 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                </div>
+
+                <button id="save-settings" class="w-full py-4 bg-green-600 text-white text-lg font-bold rounded-xl shadow-lg active:scale-95 transition-all">儲存並應用</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const { jsPDF } = window.jspdf;
-        
-        let state = {
-            mode: 'grid', 
-            cols: 4,
-            rows: 4,
-            thickness: 5,
-            lineColor: '#000000',
-            image: null,
-            seed: Math.random(),
-            previewPage: 1,
-            exportScope: 'both',
-            rotation: 0,
-            pdfOrientation: 'p'
+        const state = {
+            isPlaying: false,
+            isPaused: false,
+            score: 0,
+            timeLeft: 60,
+            timer: null,
+            mode: 'single',
+            target: 'win',
+            showHints: false,
+            isAutoplay: false,
+            itemDuration: 5,
+            totalItems: 10,
+            currentRoundCount: 0,
+            autoplayElapsed: 0,
+            currentQuestions: [],
+            currentIndex: 0,
+            lastFrameTime: 0
         };
 
-        const canvas = document.getElementById('preview-canvas');
-        const ctx = canvas.getContext('2d');
-        const dropZone = document.getElementById('drop-zone');
-        const emptyState = document.getElementById('empty-state');
-        const canvasWrapper = document.getElementById('canvas-wrapper');
-        const previewTabs = document.getElementById('preview-tabs-container');
+        const MOVES = {
+            rock: { emoji: '✊', beats: 'scissors', losesTo: 'paper' },
+            scissors: { emoji: '✌️', beats: 'paper', losesTo: 'rock' },
+            paper: { emoji: '✋', beats: 'rock', losesTo: 'scissors' }
+        };
 
-        function updateState(updates) {
-            Object.assign(state, updates);
-            
-            document.getElementById('label-cols').innerText = state.cols;
-            document.getElementById('label-rows').innerText = state.rows;
-            document.getElementById('label-thickness').innerText = state.thickness + 'px';
-            document.getElementById('input-color').value = state.lineColor;
-            
-            const isGrid = state.mode === 'grid';
-            document.getElementById('btn-grid').className = isGrid 
-                ? "flex-1 py-1.5 text-xs rounded bg-white shadow-sm font-bold text-blue-600 transition-all" 
-                : "flex-1 py-1.5 text-xs rounded text-slate-500 hover:bg-white/50 font-medium transition-all";
-            document.getElementById('btn-slant').className = !isGrid 
-                ? "flex-1 py-1.5 text-xs rounded bg-white shadow-sm font-bold text-blue-600 transition-all" 
-                : "flex-1 py-1.5 text-xs rounded text-slate-500 hover:bg-white/50 font-medium transition-all";
+        const TARGET_MAP = { win: "請猜贏！", draw: "請平手！", lose: "請猜輸！" };
 
-            const isPort = state.pdfOrientation === 'p';
-            document.getElementById('btn-port').className = isPort 
-                ? "flex-1 py-1.5 text-[10px] rounded bg-white shadow-sm font-bold text-blue-600" 
-                : "flex-1 py-1.5 text-[10px] rounded text-slate-500 hover:bg-white/50 font-medium";
-            document.getElementById('btn-land').className = !isPort 
-                ? "flex-1 py-1.5 text-[10px] rounded bg-white shadow-sm font-bold text-blue-600" 
-                : "flex-1 py-1.5 text-[10px] rounded text-slate-500 hover:bg-white/50 font-medium";
+        const dom = {
+            startScreen: document.getElementById('start-screen'),
+            stage: document.getElementById('stage'),
+            resultScreen: document.getElementById('result-screen'),
+            controls: document.getElementById('controls'),
+            qContainer: document.getElementById('question-container'),
+            instruction: document.getElementById('instruction-banner'),
+            timerDisplay: document.getElementById('timer-display'),
+            scoreDisplay: document.getElementById('score-display'),
+            finalScore: document.getElementById('final-score'),
+            settingsBtn: document.getElementById('settings-btn'),
+            settingsModal: document.getElementById('settings-modal'),
+            autoplayProgress: document.getElementById('autoplay-progress'),
+            autoplayProgressFill: document.getElementById('autoplay-progress-fill'),
+            pauseOverlay: document.getElementById('pause-overlay'),
+            pauseBtn: document.getElementById('pause-btn'),
+            stopBtn: document.getElementById('stop-btn'),
+            gameControlsTop: document.getElementById('game-controls-top'),
+            qIndexLabel: document.getElementById('question-index-label'),
+            feedbackOverlay: document.getElementById('feedback-overlay'),
+            feedbackIcon: document.getElementById('feedback-icon'),
+            designerInfo: document.getElementById('designer-info')
+        };
 
-            document.getElementById('info-mode').innerText = state.mode.toUpperCase();
-            draw();
+        function setVH() {
+            let vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
         }
+        window.addEventListener('resize', setVH);
+        setVH();
 
-        function rotateImage() {
-            state.rotation = (state.rotation + 90) % 360;
-            draw();
-        }
+        function init() {
+            document.getElementById('start-game-btn').onclick = startGame;
+            document.getElementById('restart-btn').onclick = startGame;
+            dom.settingsBtn.onclick = () => dom.settingsModal.classList.remove('hidden');
+            document.getElementById('close-settings').onclick = () => dom.settingsModal.classList.add('hidden');
+            document.getElementById('save-settings').onclick = () => dom.settingsModal.classList.add('hidden');
+            dom.pauseBtn.onclick = togglePause;
+            dom.stopBtn.onclick = endGame;
 
-        function updatePreviewPage(page) {
-            state.previewPage = page;
-            const t1 = document.getElementById('tab-1');
-            const t2 = document.getElementById('tab-2');
-            
-            if(page === 1) {
-                t1.className = "flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-600 text-white shadow-sm";
-                t2.className = "flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
-            } else {
-                t2.className = "flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-600 text-white shadow-sm";
-                t1.className = "flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
-            }
-            draw();
-        }
+            const autoToggle = document.getElementById('setting-autoplay');
+            autoToggle.onchange = (e) => {
+                state.isAutoplay = e.target.checked;
+                document.getElementById('autoplay-configs').classList.toggle('hidden', !state.isAutoplay);
+                document.getElementById('manual-configs').classList.toggle('hidden', state.isAutoplay);
+            };
 
-        function handleFile(file) {
-            if (!file || !file.type.startsWith('image/')) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    state.image = img;
-                    state.seed = Math.random();
-                    state.rotation = 0;
-                    document.getElementById('section-2').classList.remove('disabled');
-                    document.getElementById('section-3').classList.remove('disabled');
-                    emptyState.classList.add('hidden');
-                    canvasWrapper.classList.remove('hidden');
-                    previewTabs.classList.remove('hidden');
-                    document.getElementById('upload-placeholder').classList.add('hidden');
-                    const fileInfo = document.getElementById('file-info');
-                    fileInfo.innerText = file.name;
-                    fileInfo.classList.remove('hidden');
-                    updateState({});
-                    
-                    if (window.innerWidth < 768) {
-                        setTimeout(() => {
-                            canvasWrapper.scrollIntoView({ behavior: 'smooth' });
-                        }, 300);
-                    }
+            document.getElementById('setting-item-duration').oninput = (e) => {
+                state.itemDuration = parseInt(e.target.value);
+                document.getElementById('val-per-item').innerText = state.itemDuration;
+            };
+            document.getElementById('setting-total-items').oninput = (e) => {
+                state.totalItems = parseInt(e.target.value);
+                document.getElementById('val-total-items').innerText = state.totalItems;
+            };
+            document.getElementById('setting-time').oninput = (e) => {
+                state.timeLeft = parseInt(e.target.value);
+                document.getElementById('time-val-display').innerText = state.timeLeft + 's';
+            };
+
+            document.getElementById('setting-mode').onchange = (e) => state.mode = e.target.value;
+            document.getElementById('setting-hints').onchange = (e) => state.showHints = e.target.checked;
+
+            document.querySelectorAll('.target-opt').forEach(btn => {
+                btn.onclick = () => {
+                    state.target = btn.dataset.target;
+                    document.querySelectorAll('.target-opt').forEach(b => {
+                        b.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
+                        b.classList.add('border-gray-100', 'text-gray-400');
+                    });
+                    btn.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
                 };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function drawLines(targetCtx, w, h, forceColor = null, forceThickness = null) {
-            targetCtx.strokeStyle = forceColor || state.lineColor;
-            targetCtx.lineWidth = forceThickness || state.thickness;
-            targetCtx.lineCap = "round";
-            targetCtx.lineJoin = "round";
-
-            const cols = parseInt(state.cols);
-            const rows = parseInt(state.rows);
-            
-            const getOffset = (seed, i, j) => {
-                const x = Math.sin(seed + i * 137.5 + j * 42.1) * 10000;
-                return (x - Math.floor(x)) - 0.5;
-            };
-
-            const wobble = 0.4;
-
-            if (state.mode === 'grid') {
-                for (let i = 1; i < rows; i++) {
-                    const y = (h / rows) * i;
-                    targetCtx.beginPath(); targetCtx.moveTo(0, y); targetCtx.lineTo(w, y); targetCtx.stroke();
-                }
-                for (let i = 1; i < cols; i++) {
-                    const x = (w / cols) * i;
-                    targetCtx.beginPath(); targetCtx.moveTo(x, 0); targetCtx.lineTo(x, h); targetCtx.stroke();
-                }
-            } else {
-                const points = [];
-                for (let j = 0; j <= rows; j++) {
-                    points[j] = [];
-                    for (let i = 0; i <= cols; i++) {
-                        let px = (w / cols) * i;
-                        let py = (h / rows) * j;
-                        if (i > 0 && i < cols) px += getOffset(state.seed, i, j) * (w / cols) * wobble;
-                        if (j > 0 && j < rows) py += getOffset(state.seed + 1, i, j) * (h / rows) * wobble;
-                        points[j][i] = { x: px, y: py };
-                    }
-                }
-
-                for (let j = 1; j < rows; j++) {
-                    targetCtx.beginPath();
-                    targetCtx.moveTo(points[j][0].x, points[j][0].y);
-                    for (let i = 1; i <= cols; i++) targetCtx.lineTo(points[j][i].x, points[j][i].y);
-                    targetCtx.stroke();
-                }
-                for (let i = 1; i < cols; i++) {
-                    targetCtx.beginPath();
-                    targetCtx.moveTo(points[0][i].x, points[0][i].y);
-                    for (let j = 1; j <= rows; j++) targetCtx.lineTo(points[j][i].x, points[j][i].y);
-                    targetCtx.stroke();
-                }
-            }
-        }
-
-        function draw() {
-            if (!state.image) return;
-            const img = state.image;
-            
-            const isVerticalRotation = state.rotation === 90 || state.rotation === 270;
-            const targetW = isVerticalRotation ? img.height : img.width;
-            const targetH = isVerticalRotation ? img.width : img.height;
-            
-            canvas.width = targetW;
-            canvas.height = targetH;
-            
-            document.getElementById('info-res').innerText = `${targetW} x ${targetH} PX`;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const thickness = parseFloat(state.thickness);
-            const offset = thickness / 2;
-
-            if (state.previewPage === 1) {
-                ctx.save();
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.rotate((state.rotation * Math.PI) / 180);
-                ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                ctx.restore();
-                
-                drawLines(ctx, canvas.width, canvas.height);
-                
-                ctx.strokeStyle = "#000000";
-                ctx.lineWidth = thickness; 
-                ctx.strokeRect(offset, offset, canvas.width - thickness, canvas.height - thickness);
-            } else {
-                ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                drawLines(ctx, canvas.width, canvas.height, "#cccccc");
-                
-                ctx.strokeStyle = "#000000";
-                ctx.lineWidth = thickness; 
-                ctx.strokeRect(offset, offset, canvas.width - thickness, canvas.height - thickness);
-            }
-        }
-
-        async function exportPDF() {
-            if (!state.image) return;
-            
-            const pdf = new jsPDF({ 
-                orientation: state.pdfOrientation, 
-                unit: 'mm', 
-                format: 'a4' 
             });
 
-            const isLand = state.pdfOrientation === 'l';
-            const pageWidth = isLand ? 297 : 210;
-            const pageHeight = isLand ? 210 : 297;
-            const margin = 12;
-            const contentWidth = pageWidth - (margin * 2);
-            const contentHeight = pageHeight - (margin * 2);
-            
-            const isVerticalRotation = state.rotation === 90 || state.rotation === 270;
-            const currentW = isVerticalRotation ? state.image.height : state.image.width;
-            const currentH = isVerticalRotation ? state.image.width : state.image.height;
-            
-            const ratio = currentW / currentH;
-            let drawW, drawH;
-
-            if (ratio > contentWidth / contentHeight) {
-                drawW = contentWidth;
-                drawH = contentWidth / ratio;
-            } else {
-                drawH = contentHeight;
-                drawW = drawH * ratio;
-            }
-
-            const x = (pageWidth - drawW) / 2;
-            const y = (pageHeight - drawH) / 2;
-
-            const renderPageToImg = (type) => {
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = currentW;
-                tempCanvas.height = currentH;
-                const tCtx = tempCanvas.getContext('2d');
-                const thickness = parseFloat(state.thickness);
-                const offset = thickness / 2;
-                
-                if(type === 1) {
-                    tCtx.save();
-                    tCtx.translate(currentW / 2, currentH / 2);
-                    tCtx.rotate((state.rotation * Math.PI) / 180);
-                    tCtx.drawImage(state.image, -state.image.width / 2, -state.image.height / 2);
-                    tCtx.restore();
-                    drawLines(tCtx, currentW, currentH);
-                    tCtx.strokeStyle = "#000000";
-                    tCtx.lineWidth = thickness;
-                    tCtx.strokeRect(offset, offset, currentW - thickness, currentH - thickness);
-                } else {
-                    tCtx.fillStyle = "#ffffff";
-                    tCtx.fillRect(0, 0, currentW, currentH);
-                    drawLines(tCtx, currentW, currentH, "#cccccc");
-                    tCtx.strokeStyle = "#000000";
-                    tCtx.lineWidth = thickness;
-                    tCtx.strokeRect(offset, offset, currentW - thickness, currentH - thickness);
-                }
-                return tempCanvas.toDataURL('image/jpeg', 0.95);
-            };
-
-            const addPuzzlePage = () => {
-                pdf.addImage(renderPageToImg(1), 'JPEG', x, y, drawW, drawH);
-                pdf.setFontSize(8);
-                pdf.setTextColor(180);
-                pdf.text("PAGE 1: PUZZLE", pageWidth/2, pageHeight - 8, {align:'center'});
-            };
-
-            const addMapPage = () => {
-                pdf.addImage(renderPageToImg(2), 'JPEG', x, y, drawW, drawH);
-                pdf.setFontSize(8);
-                pdf.setTextColor(180);
-                pdf.text("PAGE 2: GUIDANCE MAP", pageWidth/2, pageHeight - 8, {align:'center'});
-            };
-
-            if (state.exportScope === 'both') {
-                addPuzzlePage();
-                pdf.addPage();
-                addMapPage();
-            } else if (state.exportScope === 'puzzle') {
-                addPuzzlePage();
-            } else {
-                addMapPage();
-            }
-
-            pdf.save(`puzzle-maker-${Date.now()}.pdf`);
+            document.querySelectorAll('.gesture-btn').forEach(btn => {
+                btn.onclick = () => handleInput(btn.dataset.move);
+            });
         }
 
-        dropZone.onclick = () => document.getElementById('img-input').click();
-        
-        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-blue-50'); };
-        dropZone.ondragleave = () => { dropZone.classList.remove('border-blue-500', 'bg-blue-50'); };
-        dropZone.ondrop = (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-            handleFile(e.dataTransfer.files[0]);
-        };
+        function togglePause() {
+            if (!state.isPlaying) return;
+            state.isPaused = !state.isPaused;
+            dom.pauseOverlay.classList.toggle('hidden', !state.isPaused);
+            dom.pauseBtn.innerText = state.isPaused ? "▶ 繼續" : "⏸ 暫停";
+            if (!state.isPaused && state.isAutoplay) {
+                state.lastFrameTime = performance.now();
+                requestAnimationFrame(updateAutoplay);
+            }
+        }
+
+        function startGame() {
+            state.isPlaying = true;
+            state.isPaused = false;
+            state.score = 0;
+            state.currentIndex = 0;
+            state.currentRoundCount = 0;
+            state.autoplayElapsed = 0;
+            dom.scoreDisplay.innerText = '0';
+            dom.startScreen.classList.add('hidden');
+            dom.resultScreen.classList.add('hidden');
+            dom.stage.classList.remove('hidden');
+            dom.pauseOverlay.classList.add('hidden');
+            dom.gameControlsTop.classList.remove('hidden');
+            dom.designerInfo.classList.add('hidden');
+
+            if (state.isAutoplay) {
+                dom.controls.classList.add('hidden');
+                dom.autoplayProgress.classList.remove('hidden');
+                dom.timerDisplay.innerText = "自動模式";
+                nextRound();
+                state.lastFrameTime = performance.now();
+                requestAnimationFrame(updateAutoplay);
+            } else {
+                dom.controls.classList.remove('hidden');
+                dom.autoplayProgress.classList.add('hidden');
+                state.timeLeft = parseInt(document.getElementById('setting-time').value);
+                startTimer();
+                nextRound();
+            }
+        }
+
+        function startTimer() {
+            if (state.timer) clearInterval(state.timer);
+            state.timer = setInterval(() => {
+                if (state.isPaused) return;
+                state.timeLeft--;
+                const m = Math.floor(state.timeLeft / 60);
+                const s = state.timeLeft % 60;
+                dom.timerDisplay.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                if (state.timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function updateAutoplay(timestamp) {
+            if (!state.isPlaying || !state.isAutoplay || state.isPaused) return;
+            const deltaTime = timestamp - state.lastFrameTime;
+            state.lastFrameTime = timestamp;
+            state.autoplayElapsed += deltaTime;
+            const durationMs = state.itemDuration * 1000;
+            const percent = Math.min((state.autoplayElapsed / durationMs) * 100, 100);
+            dom.autoplayProgressFill.style.width = percent + '%';
+            if (state.autoplayElapsed >= durationMs) {
+                state.autoplayElapsed = 0;
+                if (state.currentRoundCount >= state.totalItems) endGame();
+                else nextRound();
+            }
+            requestAnimationFrame(updateAutoplay);
+        }
+
+        function endGame() {
+            state.isPlaying = false;
+            clearInterval(state.timer);
+            dom.stage.classList.add('hidden');
+            dom.controls.classList.add('hidden');
+            dom.autoplayProgress.classList.add('hidden');
+            dom.gameControlsTop.classList.add('hidden');
+            dom.resultScreen.classList.remove('hidden');
+            dom.designerInfo.classList.remove('hidden');
+            dom.finalScore.innerText = state.score;
+        }
+
+        function nextRound() {
+            if (!state.isPlaying) return;
+            dom.qContainer.innerHTML = '';
+            state.currentQuestions = [];
+            state.currentIndex = 0;
+            dom.instruction.innerText = TARGET_MAP[state.target];
+
+            dom.qContainer.className = "w-full flex-grow flex items-center justify-center relative p-4";
+            if (state.mode === 'double') {
+                dom.qContainer.classList.add('flex-row', 'justify-around', 'px-6', 'gap-2');
+            } else if (state.mode === 'limbs') {
+                dom.qContainer.classList.add('flex-col', 'justify-center', 'gap-4');
+            } else if (state.mode === 'sequence') {
+                dom.qContainer.classList.add('flex-wrap', 'justify-center', 'gap-6', 'p-6');
+            }
+
+            let count = 1;
+            if (state.mode === 'double' || state.mode === 'limbs') count = 2;
+            else if (state.mode === 'sequence') count = 5;
+
+            const moveKeys = Object.keys(MOVES);
+
+            for (let i = 0; i < count; i++) {
+                const randomMove = moveKeys[Math.floor(Math.random() * moveKeys.length)];
+                const q = {
+                    id: i,
+                    move: randomMove,
+                    answer: getCorrectAnswer(randomMove, state.target),
+                    isLimb: state.mode === 'limbs' ? (i === 1) : false
+                };
+                state.currentQuestions.push(q);
+                renderQuestion(q, i);
+            }
+
+            state.currentRoundCount++;
+            dom.qIndexLabel.innerText = state.isAutoplay ? `第 ${state.currentRoundCount} 題 / 共 ${state.totalItems} 題` : `第 ${state.currentRoundCount} 回合`;
+        }
+
+        function getCorrectAnswer(cpuMove, target) {
+            if (target === 'win') return MOVES[cpuMove].losesTo;
+            if (target === 'draw') return cpuMove;
+            return MOVES[cpuMove].beats;
+        }
+
+        function renderQuestion(q, index) {
+            const card = document.createElement('div');
+            card.id = `q-${index}`;
+            // 基礎卡片樣式：加入彈入動畫類 animate-pop-in
+            card.className = "flex flex-col items-center justify-between bg-white border-2 border-gray-100 shadow-xl transition-all duration-300 relative animate-pop-in";
+            
+            let emojiSize = "text-6xl";
+
+            if (state.mode === 'double') {
+                card.classList.add('w-[46vw]', 'md:w-[40vh]', 'max-h-[80%]', 'aspect-square', 'rounded-[2rem]', 'p-4');
+                emojiSize = "text-[20vh]";
+            } else if (state.mode === 'limbs') {
+                card.classList.add('w-[28vh]', 'max-w-[70%]', 'aspect-square', 'rounded-2xl', 'p-2');
+                emojiSize = "text-[14vh]";
+            } else if (state.mode === 'sequence') {
+                card.classList.add('w-[30%]', 'md:w-[24vh]', 'aspect-square', 'rounded-3xl', 'p-3');
+                emojiSize = "text-[10vh] md:text-[14vh]";
+            } else if (state.mode === 'single') {
+                card.classList.add('w-[80vw]', 'md:w-[60vh]', 'max-h-[60vh]', 'aspect-square', 'rounded-[3rem]', 'p-6');
+                emojiSize = state.isAutoplay ? "text-[35vh]" : "text-[28vh]";
+            }
+
+            let labelText = "";
+            if (state.mode === 'double') labelText = index === 0 ? "左手" : "右手";
+            else if (state.mode === 'limbs') labelText = index === 0 ? "上肢" : "下肢";
+
+            // 電腦版文字標籤顯著放大 (md:text-4xl, font-black)
+            const labelHtml = labelText ? `<div class="w-full text-center py-1 bg-gray-100 rounded-full text-[10px] md:text-4xl font-black text-gray-500 mb-1 md:mb-4 shrink-0">${labelText}</div>` : '';
+            const numberBadge = (state.mode === 'sequence') ? `<div class="absolute -top-3 -left-3 w-8 h-8 md:w-10 md:h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm md:text-lg shadow-lg z-30 border-2 border-white">${index + 1}</div>` : '';
+            const hintHtml = state.showHints ? `<div class="w-full text-center mt-auto text-[10px] md:text-xl font-bold text-gray-300 border-t border-gray-50 pt-1 shrink-0">目標:${MOVES[q.answer].emoji}</div>` : '<div class="h-4 shrink-0"></div>';
+
+            card.innerHTML = `
+                ${numberBadge}
+                ${labelHtml}
+                <div class="flex-grow flex items-center justify-center w-full min-h-0">
+                    <div class="${emojiSize} leading-none select-none">${MOVES[q.move].emoji}</div>
+                </div>
+                ${hintHtml}
+            `;
+            
+            dom.qContainer.appendChild(card);
+            updateFocus();
+        }
+
+        function updateFocus() {
+            state.currentQuestions.forEach((_, i) => {
+                const el = document.getElementById(`q-${i}`);
+                if (!el) return;
+                if (state.isAutoplay) {
+                    el.classList.remove('opacity-40', 'border-green-500', 'ring-8', 'ring-green-100');
+                    el.classList.add('opacity-100');
+                } else {
+                    if (i === state.currentIndex) {
+                        el.classList.add('border-green-500', 'ring-8', 'ring-green-100', 'z-10');
+                        el.classList.remove('opacity-40');
+                    } else {
+                        el.classList.add('opacity-40');
+                        el.classList.remove('border-green-500', 'ring-8', 'ring-green-100');
+                    }
+                }
+            });
+        }
+
+        function showFeedback(type) {
+            dom.feedbackIcon.innerText = type === 'correct' ? '⭕' : '❌';
+            dom.feedbackIcon.className = type === 'correct' ? 'text-green-500 font-black' : 'text-red-500 font-black';
+            dom.feedbackOverlay.style.display = 'block';
+            document.body.classList.add(type === 'correct' ? 'correct-flash' : 'wrong-flash');
+            setTimeout(() => {
+                dom.feedbackOverlay.style.display = 'none';
+                document.body.classList.remove('correct-flash', 'wrong-flash');
+            }, 350);
+        }
+
+        function handleInput(userMove) {
+            if (!state.isPlaying || state.isAutoplay || state.isPaused) return;
+            const currentQ = state.currentQuestions[state.currentIndex];
+            const isCorrect = userMove === currentQ.answer;
+
+            if (isCorrect) {
+                state.score += 10;
+                dom.scoreDisplay.innerText = state.score;
+                showFeedback('correct');
+                state.currentIndex++;
+                if (state.currentIndex >= state.currentQuestions.length) setTimeout(nextRound, 300);
+                else updateFocus();
+            } else {
+                state.score = Math.max(0, state.score - 5);
+                dom.scoreDisplay.innerText = state.score;
+                showFeedback('wrong');
+                const targetEl = document.getElementById(`q-${state.currentIndex}`);
+                if (targetEl) {
+                    targetEl.classList.add('animate-shake');
+                    setTimeout(() => targetEl.classList.remove('animate-shake'), 500);
+                }
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        init();
     </script>
 </body>
 </html>
