@@ -1,590 +1,353 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>猜拳認知挑戰</title>
+    <title>專注力訓練產生器 - 職能治療師 鄭凱文</title>
+    <!-- 載入 React 與相關套件 -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
-        :root {
-            --vh: 1vh;
+        .preview-container {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: top center;
         }
 
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            touch-action: manipulation;
-            background-color: #f0fdf4;
-            height: 100vh;
-            height: calc(var(--vh, 1vh) * 100);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            user-select: none;
+        /* 優化 PDF 分頁邏輯，防止多餘空白頁 */
+        #printable-area { 
+            box-sizing: border-box;
+            break-after: avoid; 
+            page-break-after: avoid;
         }
 
-        /* 換題時的彈入動畫 */
-        @keyframes pop-in {
-            0% { opacity: 0; transform: scale(0.3); }
-            70% { transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        .animate-pop-in {
-            animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-        }
-
-        /* 強化版閃爍回饋 */
-        .correct-flash { animation: flash-green 0.4s ease-out; }
-        .wrong-flash { animation: flash-red 0.4s ease-out; }
-        
-        @keyframes flash-green {
-            0%, 100% { background-color: #f0fdf4; }
-            50% { background-color: rgba(34, 197, 94, 0.4); }
-        }
-        @keyframes flash-red {
-            0%, 100% { background-color: #f0fdf4; }
-            50% { background-color: rgba(239, 68, 68, 0.4); }
+        @media print {
+            @page { size: A4; margin: 0; }
+            body { background: white; margin: 0; }
+            .print-hidden { display: none !important; }
+            #printable-area { 
+                transform: none !important; 
+                width: 210mm !important; 
+                height: 296.5mm !important; /* 微調高度防止溢出 */
+                margin: 0 !important; 
+                overflow: hidden !important;
+            }
         }
 
-        #feedback-overlay {
-            pointer-events: none;
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 100;
+        .mobile-drawer {
+            transition: transform 0.3s ease-in-out;
         }
-
-        .custom-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-            background-size: 1.5em;
-        }
-
-        .progress-bar-fill { transition: width 0.1s linear; }
-
-        .animate-shake {
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-        }
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
-        }
-
-        #pause-overlay {
-            background-color: transparent;
-            backdrop-filter: none;
-            pointer-events: all;
-            cursor: default;
-        }
+        .drawer-open { transform: translateY(0); }
+        .drawer-closed { transform: translateY(100%); }
     </style>
 </head>
-<body class="flex flex-col items-center">
+<body class="bg-slate-900 overflow-hidden">
+    <div id="root"></div>
 
-    <div id="feedback-overlay">
-        <div id="feedback-icon" class="text-[15rem] font-black opacity-80"></div>
-    </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-    <!-- 頂部資訊 -->
-    <header class="w-full max-w-6xl px-4 py-2 flex justify-between items-center bg-white shadow-sm z-50 shrink-0">
-        <div class="flex flex-col">
-            <h1 class="text-lg font-bold text-green-700 leading-tight text-nowrap">活力腦猜拳</h1>
-            <div id="game-status" class="text-[10px] text-gray-400">認知功能訓練</div>
-        </div>
-        
-        <div id="game-controls-top" class="hidden flex items-center gap-2">
-            <button id="pause-btn" class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-xs hover:bg-amber-200 transition">⏸ 暫停</button>
-            <button id="stop-btn" class="px-3 py-1 bg-red-100 text-red-700 rounded-full font-bold text-xs hover:bg-red-200 transition">⏹ 結束</button>
-        </div>
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>,
+                download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
+                refresh: <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>,
+                chevronLeft: <path d="m15 18-6-6 6-6"/>,
+                chevronRight: <path d="m9 18 6-6-6-6"/>,
+                external: <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/>,
+                close: <path d="M18 6 6 18M6 6l12 12"/>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
 
-        <div class="flex items-center gap-3 text-right">
-            <div>
-                <div class="text-xl font-bold text-blue-600 leading-none" id="timer-display">--:--</div>
-                <div class="text-[10px] text-gray-400">分數: <span id="score-display">0</span></div>
-            </div>
-            <button id="settings-btn" class="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-        </div>
-    </header>
-
-    <div id="autoplay-progress" class="w-full h-1.5 bg-gray-100 hidden shrink-0">
-        <div id="autoplay-progress-fill" class="h-full bg-blue-500 progress-bar-fill" style="width: 0%"></div>
-    </div>
-
-    <!-- 遊戲主區 -->
-    <main id="game-area" class="flex-grow w-full max-w-6xl flex flex-col items-center justify-center p-2 relative overflow-hidden">
-        
-        <!-- 開始畫面 -->
-        <div id="start-screen" class="text-center bg-white p-8 rounded-[2.5rem] shadow-xl max-w-sm w-full mx-auto">
-            <div class="mb-4 text-7xl">✊✋✌️</div>
-            <h2 class="text-3xl font-black mb-2 text-gray-800">活力腦猜拳</h2>
-            <p class="text-gray-400 mb-8 font-medium">訓練大腦反應，延緩老化</p>
-            <button id="start-game-btn" class="w-full py-4 bg-green-600 text-white text-2xl font-bold rounded-2xl hover:bg-green-700 shadow-lg transition-all active:scale-95">
-                開始活動
-            </button>
-        </div>
-
-        <!-- 遊戲舞台 -->
-        <div id="stage" class="hidden w-full h-full flex flex-col items-center justify-start py-2 relative overflow-hidden">
-            <div id="pause-overlay" class="hidden absolute inset-0 z-[60] rounded-3xl"></div>
-
-            <!-- 抬頭資訊 -->
-            <div id="stage-banner" class="flex items-center gap-2 mb-2 z-10 shrink-0">
-                <div id="question-index-label" class="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">第 1 回合</div>
-                <div id="instruction-banner" class="px-5 py-1 bg-yellow-100 border-2 border-yellow-400 rounded-full text-xl md:text-2xl font-black text-yellow-800">請猜贏！</div>
-            </div>
-
-            <!-- 題目容器 -->
-            <div id="question-container" class="w-full flex-grow flex items-center justify-center relative overflow-hidden">
-                <!-- 動態內容 -->
-            </div>
-        </div>
-
-        <!-- 結算畫面 -->
-        <div id="result-screen" class="hidden text-center bg-white p-8 rounded-[2.5rem] shadow-xl max-w-xs w-full mx-auto">
-            <h2 class="text-3xl font-bold text-blue-600 mb-4">活動完成！</h2>
-            <div class="text-7xl mb-4">🎊</div>
-            <div class="text-xl text-gray-400">本次得分</div>
-            <div class="text-6xl font-black text-gray-800 mb-8" id="final-score">0</div>
-            <button id="restart-btn" class="w-full py-4 bg-blue-600 text-white text-2xl font-bold rounded-2xl shadow-lg">再試一次</button>
-        </div>
-    </main>
-
-    <!-- 下方作答按鈕 -->
-    <footer id="controls" class="hidden w-full max-w-md p-2 grid grid-cols-3 gap-3 z-40 mb-2 shrink-0">
-        <button data-move="rock" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
-            <span class="text-3xl">✊</span>
-            <span class="text-xs font-bold mt-1">石頭</span>
-        </button>
-        <button data-move="scissors" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
-            <span class="text-3xl">✌️</span>
-            <span class="text-xs font-bold mt-1">剪刀</span>
-        </button>
-        <button data-move="paper" class="gesture-btn flex flex-col items-center justify-center bg-white border-b-4 border-gray-200 rounded-2xl py-3 shadow-md active:border-b-0 active:translate-y-1 transition-all">
-            <span class="text-3xl">✋</span>
-            <span class="text-xs font-bold mt-1">布</span>
-        </button>
-    </footer>
-
-    <div id="designer-info" class="w-full py-2 text-center text-[10px] text-gray-400 shrink-0">
-        設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-blue-300 font-medium underline underline-offset-2">職能治療師 - 鄭凱文</a>
-    </div>
-
-    <!-- 設定視窗 -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4">
-        <div class="bg-white w-full max-sm:w-full max-w-sm rounded-[2rem] p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-black text-gray-800">活動設定</h3>
-                <button id="close-settings" class="text-gray-400 text-3xl leading-none">&times;</button>
-            </div>
+        const App = () => {
+            const [numCount, setNumCount] = useState(9);
+            const [itemsPerBlock, setItemsPerBlock] = useState(9);
+            const [title, setTitle] = useState("專注力訓練");
+            const [subTitle, setSubTitle] = useState("根據方框的顏色，填上對應的數字");
+            const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+            const [previewScale, setPreviewScale] = useState(0.65);
+            const [allowDuplicate, setAllowDuplicate] = useState(false);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
             
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">活動模式</label>
-                    <select id="setting-mode" class="custom-select w-full p-4 border-2 border-gray-100 rounded-xl bg-gray-50 focus:border-green-500 outline-none font-bold text-gray-700">
-                        <option value="single">單手猜拳</option>
-                        <option value="double">雙手猜拳</option>
-                        <option value="limbs">上下肢猜拳</option>
-                        <option value="sequence">連續猜拳</option>
-                    </select>
-                </div>
+            const [mapping, setMapping] = useState([]);
+            const [questionBlocks, setQuestionBlocks] = useState([]);
+            const printRef = useRef(null);
+            const lastValidSettings = useRef({ itemsPerBlock, numCount });
 
-                <div class="bg-blue-50 p-4 rounded-2xl space-y-4 border border-blue-100 shadow-inner">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-bold text-blue-800">自動播放模式</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="setting-autoplay" class="sr-only peer">
-                            <div class="w-12 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
+            const blockCount = 6;
+            const fontSize = 24;
+
+            const colorPalette = [
+                { name: '天藍', border: '#3498db' }, { name: '金黃', border: '#f1c40f' },
+                { name: '珊瑚紅', border: '#e74c3c' }, { name: '粉紫', border: '#9b59b6' },
+                { name: '粉紅', border: '#fd79a8' }, { name: '深綠', border: '#27ae60' },
+                { name: '橙色', border: '#e67e22' }, { name: '灰色', border: '#7f8c8d' },
+                { name: '嫩綠', border: '#badc58' }, { name: '深藍', border: '#2c3e50' }
+            ];
+
+            useEffect(() => {
+                const handleResize = () => {
+                    const mobile = window.innerWidth <= 768;
+                    setIsMobile(mobile);
+                    if (mobile) {
+                        const padding = 32;
+                        const availableWidth = window.innerWidth - padding;
+                        const a4WidthPx = 210 * 3.78; 
+                        const autoScale = Math.min(0.42, availableWidth / a4WidthPx);
+                        setPreviewScale(autoScale);
+                    } else {
+                        setPreviewScale(0.65);
+                    }
+                };
+                window.addEventListener('resize', handleResize);
+                handleResize();
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            const shuffle = (array) => {
+                const newArr = [...array];
+                for (let i = newArr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+                }
+                return newArr;
+            };
+
+            useEffect(() => { setItemsPerBlock(numCount); }, [numCount]);
+
+            const initGenerator = () => {
+                const newMapping = [];
+                for (let i = 1; i <= numCount; i++) {
+                    newMapping.push({ num: i, ...colorPalette[(i - 1) % colorPalette.length] });
+                }
+                setMapping(newMapping);
+
+                const newBlocks = [];
+                for (let b = 0; b < blockCount; b++) {
+                    const blockItems = [];
+                    if (allowDuplicate) {
+                        for (let i = 0; i < itemsPerBlock; i++) {
+                            blockItems.push(newMapping[Math.floor(Math.random() * newMapping.length)]);
+                        }
+                    } else {
+                        let pool = [];
+                        while (pool.length < itemsPerBlock) { pool = [...pool, ...shuffle(newMapping)]; }
+                        blockItems.push(...pool.slice(0, itemsPerBlock));
+                    }
+                    newBlocks.push(blockItems);
+                }
+                setQuestionBlocks(newBlocks);
+            };
+
+            useEffect(() => { initGenerator(); }, [numCount, itemsPerBlock, allowDuplicate]);
+
+            useEffect(() => {
+                const checkOverflow = () => {
+                    if (printRef.current) {
+                        const maxHeight = 1115; // 嚴格控制高度範圍
+                        const currentHeight = printRef.current.scrollHeight;
+                        if (currentHeight > maxHeight) {
+                            if (itemsPerBlock > lastValidSettings.current.itemsPerBlock) setItemsPerBlock(lastValidSettings.current.itemsPerBlock);
+                            else if (numCount > lastValidSettings.current.numCount) setNumCount(lastValidSettings.current.numCount);
+                        } else {
+                            lastValidSettings.current = { itemsPerBlock, numCount };
+                        }
+                    }
+                };
+                const timer = setTimeout(checkOverflow, 50);
+                return () => clearTimeout(timer);
+            }, [questionBlocks, title, itemsPerBlock]);
+
+            const handleDownloadPDF = async () => {
+                setIsGenerating(true);
+                try {
+                    const element = printRef.current;
+                    const opt = {
+                        margin: 0,
+                        filename: `${title}_訓練單.pdf`,
+                        image: { type: 'jpeg', quality: 1 },
+                        html2canvas: { scale: 3, useCORS: true, logging: false },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                        pagebreak: { mode: ['avoid-all', 'css'] }
+                    };
+                    await html2pdf().set(opt).from(element).save();
+                } catch (error) {
+                    console.error("PDF下載失敗:", error);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            const TrainingBox = ({ item, showNumber = false }) => (
+                <div className="aspect-[2/1] rounded-2xl border-[3.5px] flex items-center justify-center bg-white shadow-sm"
+                     style={{ borderColor: item.border, width: '100%', maxWidth: '100px', minWidth: '75px' }}>
+                    {showNumber && <span className="font-bold text-slate-800" style={{ fontSize: `${fontSize}px` }}>{item.num}</span>}
+                </div>
+            );
+
+            const SettingsContent = () => (
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-indigo-600">
+                            <Icon name="settings" size={24} />
+                            <h1 className="text-xl font-bold">參數設定</h1>
+                        </div>
+                        {isMobile && (
+                            <button onClick={() => setSidebarOpen(false)} className="p-2 bg-slate-100 rounded-full text-slate-500">
+                                <Icon name="close" />
+                            </button>
+                        )}
                     </div>
                     
-                    <div id="autoplay-configs" class="hidden space-y-4 pt-4 border-t border-blue-200">
-                        <div>
-                            <label class="block text-[10px] font-bold text-blue-700 mb-1">停留秒數：<span id="val-per-item">5</span>s</label>
-                            <input type="range" id="setting-item-duration" min="1" max="10" step="1" value="5" class="w-full h-1.5 bg-blue-200 rounded-lg accent-blue-600">
+                    <div className="space-y-5">
+                        <section>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">標題文字</label>
+                            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"/>
+                        </section>
+
+                        <div className="grid grid-cols-1 gap-5">
+                            <section>
+                                <div className="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <span>對照數字數量 ({numCount})</span>
+                                </div>
+                                <input type="range" min="1" max="9" value={numCount} onChange={(e) => setNumCount(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
+                            </section>
+                            
+                            <section>
+                                <div className="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    <span>每題數量 ({itemsPerBlock})</span>
+                                </div>
+                                <input type="range" min="1" max="9" value={itemsPerBlock} onChange={(e) => setItemsPerBlock(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
+                            </section>
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-blue-700 mb-1">播放總題數：<span id="val-total-items">10</span>題</label>
-                            <input type="range" id="setting-total-items" min="5" max="30" step="5" value="10" class="w-full h-1.5 bg-blue-200 rounded-lg accent-blue-600">
+
+                        <section>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">重複模式</label>
+                            <div className="flex bg-slate-100 p-1 rounded-xl">
+                                <button onClick={() => setAllowDuplicate(false)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${!allowDuplicate ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>不重複</button>
+                                <button onClick={() => setAllowDuplicate(true)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${allowDuplicate ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>隨機重複</button>
+                            </div>
+                        </section>
+
+                        <section>
+                            <div className="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <span>預覽縮放</span>
+                                <span>{Math.round(previewScale * 100)}%</span>
+                            </div>
+                            <input type="range" min="0.2" max="1.0" step="0.05" value={previewScale} onChange={(e) => setPreviewScale(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-400"/>
+                        </section>
+
+                        <div className="pt-2 space-y-3">
+                            <button onClick={initGenerator} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-black text-white py-3.5 rounded-2xl transition-all shadow-md active:scale-95 font-bold">
+                                <Icon name="refresh" size={18} /> 重新生成
+                            </button>
+                            <button onClick={handleDownloadPDF} disabled={isGenerating} className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl transition-all shadow-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 ${isGenerating && 'opacity-70'}`}>
+                                {isGenerating ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/> : <Icon name="download" size={20} />}
+                                {isGenerating ? '產出中...' : '下載 PDF 訓練單'}
+                            </button>
                         </div>
                     </div>
+                    
+                    <div className="pt-4 border-t border-slate-100 text-[10px] text-slate-400 font-medium text-center">
+                        設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">職能治療師 鄭凱文 <Icon name="external" size={10}/></a>
+                    </div>
                 </div>
+            );
 
-                <div id="manual-configs">
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">任務目標</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button data-target="win" class="target-opt p-2 border-2 border-green-500 bg-green-50 rounded-xl text-green-700 font-bold text-sm">要猜贏</button>
-                            <button data-target="draw" class="target-opt p-2 border-2 border-gray-100 rounded-xl text-gray-400 font-bold text-sm">要平手</button>
-                            <button data-target="lose" class="target-opt p-2 border-2 border-gray-100 rounded-xl text-gray-400 font-bold text-sm">要猜輸</button>
+            return (
+                <div className="h-screen w-full bg-slate-900 flex flex-col md:flex-row font-sans overflow-hidden">
+                    
+                    {!isMobile ? (
+                        <div className={`bg-white h-full transition-all duration-300 shadow-2xl z-50 relative ${sidebarOpen ? 'w-[320px]' : 'w-0'}`}>
+                            <div className={`w-[320px] h-full overflow-y-auto overflow-x-hidden ${!sidebarOpen && 'invisible'}`}>
+                                <SettingsContent />
+                            </div>
+                            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="absolute -right-8 top-1/2 -translate-y-1/2 w-8 h-20 bg-white border border-l-0 border-slate-200 rounded-r-2xl shadow-xl flex items-center justify-center hover:bg-indigo-50 transition-all">
+                                <Icon name={sidebarOpen ? "chevronLeft" : "chevronRight"} className="text-indigo-600" />
+                            </button>
                         </div>
+                    ) : (
+                        <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
+                            <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] mobile-drawer max-h-[90vh] overflow-y-auto ${sidebarOpen ? 'drawer-open' : 'drawer-closed'}`}>
+                                <SettingsContent />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex-1 relative overflow-auto bg-slate-800 scrollbar-hide flex items-start justify-center p-4 md:p-12">
+                        <div className="preview-container" style={{ transform: `scale(${previewScale})` }}>
+                            <div ref={printRef} id="printable-area" className="bg-white shadow-[0_0_50px_rgba(0,0,0,0.5)] w-[210mm] h-[296.5mm] p-[8mm] flex flex-col overflow-hidden select-none" style={{ boxSizing: 'border-box' }}>
+                                
+                                <div className="text-center mb-4">
+                                    <h2 className="text-4xl font-black text-slate-800 tracking-[0.15em] mb-2">{title}</h2>
+                                    <p className="text-slate-500 text-sm font-medium">{subTitle}</p>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4 py-3 border-y-2 border-slate-100 bg-slate-50/50 rounded-2xl mb-5 px-6 text-slate-700 text-base font-bold">
+                                    <div className="flex items-end gap-1 whitespace-nowrap">姓名：<span className="flex-1 border-b-2 border-slate-300 min-w-[60px]"></span></div>
+                                    <div className="flex items-end gap-1 whitespace-nowrap">日期：<span className="flex-1 border-b-2 border-slate-300 min-w-[60px]"></span></div>
+                                    <div className="flex items-end gap-1 whitespace-nowrap">時間：<span className="flex-1 border-b-2 border-slate-300 min-w-[60px]"></span></div>
+                                </div>
+
+                                <div className="mb-5 p-4 bg-white rounded-[32px] border-2 border-indigo-100 shadow-sm">
+                                    <div className="grid grid-cols-5 gap-3 justify-items-center">
+                                        {mapping.map((item, idx) => <TrainingBox key={idx} item={item} showNumber={true} />)}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 mb-5">
+                                    <div className="flex-1 h-[1.5px] bg-indigo-50"></div>
+                                    <span className="text-[10px] tracking-[0.3em] font-black text-indigo-200 uppercase">QUESTIONS AREA</span>
+                                    <div className="flex-1 h-[1.5px] bg-indigo-50"></div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-6 flex-1 items-start px-2">
+                                    {questionBlocks.map((block, bIdx) => (
+                                        <div key={bIdx} className="relative pt-6 pb-2.5 px-3 border border-slate-100 rounded-[24px] bg-slate-50/10">
+                                            <div className="absolute -top-3 left-4 bg-indigo-600 text-white text-[10px] px-4 py-1 rounded-full font-black shadow-md">題目 #{bIdx + 1}</div>
+                                            <div className="grid gap-2 justify-items-center" style={{ gridTemplateColumns: `repeat(3, minmax(0, 1fr))` }}>
+                                                {block.map((item, iIdx) => <TrainingBox key={iIdx} item={item} showNumber={false} />)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* 移除頁尾內容，保持空白 */}
+                                <div className="mt-auto h-4"></div>
+                            </div>
+                        </div>
+
+                        {isMobile && (
+                            <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
+                                <button onClick={initGenerator} className="w-14 h-14 bg-slate-800 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform">
+                                    <Icon name="refresh" />
+                                </button>
+                                <button onClick={() => setSidebarOpen(true)} className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform">
+                                    <Icon name="settings" />
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">挑戰時間 (秒)</label>
-                        <input type="range" id="setting-time" min="10" max="120" step="10" value="60" class="w-full h-1.5 bg-gray-200 rounded-lg accent-green-600">
-                        <div class="flex justify-between text-[10px] text-gray-400 mt-1"><span class="font-bold text-green-600" id="time-val-display">60s</span><span>120s</span></div>
-                    </div>
                 </div>
-
-                <div class="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
-                    <span class="text-xs font-bold text-gray-500">顯示參考答案</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="setting-hints" class="sr-only peer">
-                        <div class="w-12 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                    </label>
-                </div>
-
-                <button id="save-settings" class="w-full py-4 bg-green-600 text-white text-lg font-bold rounded-xl shadow-lg active:scale-95 transition-all">儲存並應用</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const state = {
-            isPlaying: false,
-            isPaused: false,
-            score: 0,
-            timeLeft: 60,
-            timer: null,
-            mode: 'single',
-            target: 'win',
-            showHints: false,
-            isAutoplay: false,
-            itemDuration: 5,
-            totalItems: 10,
-            currentRoundCount: 0,
-            autoplayElapsed: 0,
-            currentQuestions: [],
-            currentIndex: 0,
-            lastFrameTime: 0
+            );
         };
 
-        const MOVES = {
-            rock: { emoji: '✊', beats: 'scissors', losesTo: 'paper' },
-            scissors: { emoji: '✌️', beats: 'paper', losesTo: 'rock' },
-            paper: { emoji: '✋', beats: 'rock', losesTo: 'scissors' }
-        };
-
-        const TARGET_MAP = { win: "請猜贏！", draw: "請平手！", lose: "請猜輸！" };
-
-        const dom = {
-            startScreen: document.getElementById('start-screen'),
-            stage: document.getElementById('stage'),
-            resultScreen: document.getElementById('result-screen'),
-            controls: document.getElementById('controls'),
-            qContainer: document.getElementById('question-container'),
-            instruction: document.getElementById('instruction-banner'),
-            timerDisplay: document.getElementById('timer-display'),
-            scoreDisplay: document.getElementById('score-display'),
-            finalScore: document.getElementById('final-score'),
-            settingsBtn: document.getElementById('settings-btn'),
-            settingsModal: document.getElementById('settings-modal'),
-            autoplayProgress: document.getElementById('autoplay-progress'),
-            autoplayProgressFill: document.getElementById('autoplay-progress-fill'),
-            pauseOverlay: document.getElementById('pause-overlay'),
-            pauseBtn: document.getElementById('pause-btn'),
-            stopBtn: document.getElementById('stop-btn'),
-            gameControlsTop: document.getElementById('game-controls-top'),
-            qIndexLabel: document.getElementById('question-index-label'),
-            feedbackOverlay: document.getElementById('feedback-overlay'),
-            feedbackIcon: document.getElementById('feedback-icon'),
-            designerInfo: document.getElementById('designer-info')
-        };
-
-        function setVH() {
-            let vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-        }
-        window.addEventListener('resize', setVH);
-        setVH();
-
-        function init() {
-            document.getElementById('start-game-btn').onclick = startGame;
-            document.getElementById('restart-btn').onclick = startGame;
-            dom.settingsBtn.onclick = () => dom.settingsModal.classList.remove('hidden');
-            document.getElementById('close-settings').onclick = () => dom.settingsModal.classList.add('hidden');
-            document.getElementById('save-settings').onclick = () => dom.settingsModal.classList.add('hidden');
-            dom.pauseBtn.onclick = togglePause;
-            dom.stopBtn.onclick = endGame;
-
-            const autoToggle = document.getElementById('setting-autoplay');
-            autoToggle.onchange = (e) => {
-                state.isAutoplay = e.target.checked;
-                document.getElementById('autoplay-configs').classList.toggle('hidden', !state.isAutoplay);
-                document.getElementById('manual-configs').classList.toggle('hidden', state.isAutoplay);
-            };
-
-            document.getElementById('setting-item-duration').oninput = (e) => {
-                state.itemDuration = parseInt(e.target.value);
-                document.getElementById('val-per-item').innerText = state.itemDuration;
-            };
-            document.getElementById('setting-total-items').oninput = (e) => {
-                state.totalItems = parseInt(e.target.value);
-                document.getElementById('val-total-items').innerText = state.totalItems;
-            };
-            document.getElementById('setting-time').oninput = (e) => {
-                state.timeLeft = parseInt(e.target.value);
-                document.getElementById('time-val-display').innerText = state.timeLeft + 's';
-            };
-
-            document.getElementById('setting-mode').onchange = (e) => state.mode = e.target.value;
-            document.getElementById('setting-hints').onchange = (e) => state.showHints = e.target.checked;
-
-            document.querySelectorAll('.target-opt').forEach(btn => {
-                btn.onclick = () => {
-                    state.target = btn.dataset.target;
-                    document.querySelectorAll('.target-opt').forEach(b => {
-                        b.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
-                        b.classList.add('border-gray-100', 'text-gray-400');
-                    });
-                    btn.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
-                };
-            });
-
-            document.querySelectorAll('.gesture-btn').forEach(btn => {
-                btn.onclick = () => handleInput(btn.dataset.move);
-            });
-        }
-
-        function togglePause() {
-            if (!state.isPlaying) return;
-            state.isPaused = !state.isPaused;
-            dom.pauseOverlay.classList.toggle('hidden', !state.isPaused);
-            dom.pauseBtn.innerText = state.isPaused ? "▶ 繼續" : "⏸ 暫停";
-            if (!state.isPaused && state.isAutoplay) {
-                state.lastFrameTime = performance.now();
-                requestAnimationFrame(updateAutoplay);
-            }
-        }
-
-        function startGame() {
-            state.isPlaying = true;
-            state.isPaused = false;
-            state.score = 0;
-            state.currentIndex = 0;
-            state.currentRoundCount = 0;
-            state.autoplayElapsed = 0;
-            dom.scoreDisplay.innerText = '0';
-            dom.startScreen.classList.add('hidden');
-            dom.resultScreen.classList.add('hidden');
-            dom.stage.classList.remove('hidden');
-            dom.pauseOverlay.classList.add('hidden');
-            dom.gameControlsTop.classList.remove('hidden');
-            dom.designerInfo.classList.add('hidden');
-
-            if (state.isAutoplay) {
-                dom.controls.classList.add('hidden');
-                dom.autoplayProgress.classList.remove('hidden');
-                dom.timerDisplay.innerText = "自動模式";
-                nextRound();
-                state.lastFrameTime = performance.now();
-                requestAnimationFrame(updateAutoplay);
-            } else {
-                dom.controls.classList.remove('hidden');
-                dom.autoplayProgress.classList.add('hidden');
-                state.timeLeft = parseInt(document.getElementById('setting-time').value);
-                startTimer();
-                nextRound();
-            }
-        }
-
-        function startTimer() {
-            if (state.timer) clearInterval(state.timer);
-            state.timer = setInterval(() => {
-                if (state.isPaused) return;
-                state.timeLeft--;
-                const m = Math.floor(state.timeLeft / 60);
-                const s = state.timeLeft % 60;
-                dom.timerDisplay.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                if (state.timeLeft <= 0) endGame();
-            }, 1000);
-        }
-
-        function updateAutoplay(timestamp) {
-            if (!state.isPlaying || !state.isAutoplay || state.isPaused) return;
-            const deltaTime = timestamp - state.lastFrameTime;
-            state.lastFrameTime = timestamp;
-            state.autoplayElapsed += deltaTime;
-            const durationMs = state.itemDuration * 1000;
-            const percent = Math.min((state.autoplayElapsed / durationMs) * 100, 100);
-            dom.autoplayProgressFill.style.width = percent + '%';
-            if (state.autoplayElapsed >= durationMs) {
-                state.autoplayElapsed = 0;
-                if (state.currentRoundCount >= state.totalItems) endGame();
-                else nextRound();
-            }
-            requestAnimationFrame(updateAutoplay);
-        }
-
-        function endGame() {
-            state.isPlaying = false;
-            clearInterval(state.timer);
-            dom.stage.classList.add('hidden');
-            dom.controls.classList.add('hidden');
-            dom.autoplayProgress.classList.add('hidden');
-            dom.gameControlsTop.classList.add('hidden');
-            dom.resultScreen.classList.remove('hidden');
-            dom.designerInfo.classList.remove('hidden');
-            dom.finalScore.innerText = state.score;
-        }
-
-        function nextRound() {
-            if (!state.isPlaying) return;
-            dom.qContainer.innerHTML = '';
-            state.currentQuestions = [];
-            state.currentIndex = 0;
-            dom.instruction.innerText = TARGET_MAP[state.target];
-
-            dom.qContainer.className = "w-full flex-grow flex items-center justify-center relative p-4";
-            if (state.mode === 'double') {
-                dom.qContainer.classList.add('flex-row', 'justify-around', 'px-6', 'gap-2');
-            } else if (state.mode === 'limbs') {
-                dom.qContainer.classList.add('flex-col', 'justify-center', 'gap-4');
-            } else if (state.mode === 'sequence') {
-                dom.qContainer.classList.add('flex-wrap', 'justify-center', 'gap-6', 'p-6');
-            }
-
-            let count = 1;
-            if (state.mode === 'double' || state.mode === 'limbs') count = 2;
-            else if (state.mode === 'sequence') count = 5;
-
-            const moveKeys = Object.keys(MOVES);
-
-            for (let i = 0; i < count; i++) {
-                const randomMove = moveKeys[Math.floor(Math.random() * moveKeys.length)];
-                const q = {
-                    id: i,
-                    move: randomMove,
-                    answer: getCorrectAnswer(randomMove, state.target),
-                    isLimb: state.mode === 'limbs' ? (i === 1) : false
-                };
-                state.currentQuestions.push(q);
-                renderQuestion(q, i);
-            }
-
-            state.currentRoundCount++;
-            dom.qIndexLabel.innerText = state.isAutoplay ? `第 ${state.currentRoundCount} 題 / 共 ${state.totalItems} 題` : `第 ${state.currentRoundCount} 回合`;
-        }
-
-        function getCorrectAnswer(cpuMove, target) {
-            if (target === 'win') return MOVES[cpuMove].losesTo;
-            if (target === 'draw') return cpuMove;
-            return MOVES[cpuMove].beats;
-        }
-
-        function renderQuestion(q, index) {
-            const card = document.createElement('div');
-            card.id = `q-${index}`;
-            // 基礎卡片樣式：加入彈入動畫類 animate-pop-in
-            card.className = "flex flex-col items-center justify-between bg-white border-2 border-gray-100 shadow-xl transition-all duration-300 relative animate-pop-in";
-            
-            let emojiSize = "text-6xl";
-
-            if (state.mode === 'double') {
-                card.classList.add('w-[46vw]', 'md:w-[40vh]', 'max-h-[80%]', 'aspect-square', 'rounded-[2rem]', 'p-4');
-                emojiSize = "text-[20vh]";
-            } else if (state.mode === 'limbs') {
-                card.classList.add('w-[28vh]', 'max-w-[70%]', 'aspect-square', 'rounded-2xl', 'p-2');
-                emojiSize = "text-[14vh]";
-            } else if (state.mode === 'sequence') {
-                card.classList.add('w-[30%]', 'md:w-[24vh]', 'aspect-square', 'rounded-3xl', 'p-3');
-                emojiSize = "text-[10vh] md:text-[14vh]";
-            } else if (state.mode === 'single') {
-                card.classList.add('w-[80vw]', 'md:w-[60vh]', 'max-h-[60vh]', 'aspect-square', 'rounded-[3rem]', 'p-6');
-                emojiSize = state.isAutoplay ? "text-[35vh]" : "text-[28vh]";
-            }
-
-            let labelText = "";
-            if (state.mode === 'double') labelText = index === 0 ? "左手" : "右手";
-            else if (state.mode === 'limbs') labelText = index === 0 ? "上肢" : "下肢";
-
-            // 電腦版文字標籤顯著放大 (md:text-4xl, font-black)
-            const labelHtml = labelText ? `<div class="w-full text-center py-1 bg-gray-100 rounded-full text-[10px] md:text-4xl font-black text-gray-500 mb-1 md:mb-4 shrink-0">${labelText}</div>` : '';
-            const numberBadge = (state.mode === 'sequence') ? `<div class="absolute -top-3 -left-3 w-8 h-8 md:w-10 md:h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm md:text-lg shadow-lg z-30 border-2 border-white">${index + 1}</div>` : '';
-            const hintHtml = state.showHints ? `<div class="w-full text-center mt-auto text-[10px] md:text-xl font-bold text-gray-300 border-t border-gray-50 pt-1 shrink-0">目標:${MOVES[q.answer].emoji}</div>` : '<div class="h-4 shrink-0"></div>';
-
-            card.innerHTML = `
-                ${numberBadge}
-                ${labelHtml}
-                <div class="flex-grow flex items-center justify-center w-full min-h-0">
-                    <div class="${emojiSize} leading-none select-none">${MOVES[q.move].emoji}</div>
-                </div>
-                ${hintHtml}
-            `;
-            
-            dom.qContainer.appendChild(card);
-            updateFocus();
-        }
-
-        function updateFocus() {
-            state.currentQuestions.forEach((_, i) => {
-                const el = document.getElementById(`q-${i}`);
-                if (!el) return;
-                if (state.isAutoplay) {
-                    el.classList.remove('opacity-40', 'border-green-500', 'ring-8', 'ring-green-100');
-                    el.classList.add('opacity-100');
-                } else {
-                    if (i === state.currentIndex) {
-                        el.classList.add('border-green-500', 'ring-8', 'ring-green-100', 'z-10');
-                        el.classList.remove('opacity-40');
-                    } else {
-                        el.classList.add('opacity-40');
-                        el.classList.remove('border-green-500', 'ring-8', 'ring-green-100');
-                    }
-                }
-            });
-        }
-
-        function showFeedback(type) {
-            dom.feedbackIcon.innerText = type === 'correct' ? '⭕' : '❌';
-            dom.feedbackIcon.className = type === 'correct' ? 'text-green-500 font-black' : 'text-red-500 font-black';
-            dom.feedbackOverlay.style.display = 'block';
-            document.body.classList.add(type === 'correct' ? 'correct-flash' : 'wrong-flash');
-            setTimeout(() => {
-                dom.feedbackOverlay.style.display = 'none';
-                document.body.classList.remove('correct-flash', 'wrong-flash');
-            }, 350);
-        }
-
-        function handleInput(userMove) {
-            if (!state.isPlaying || state.isAutoplay || state.isPaused) return;
-            const currentQ = state.currentQuestions[state.currentIndex];
-            const isCorrect = userMove === currentQ.answer;
-
-            if (isCorrect) {
-                state.score += 10;
-                dom.scoreDisplay.innerText = state.score;
-                showFeedback('correct');
-                state.currentIndex++;
-                if (state.currentIndex >= state.currentQuestions.length) setTimeout(nextRound, 300);
-                else updateFocus();
-            } else {
-                state.score = Math.max(0, state.score - 5);
-                dom.scoreDisplay.innerText = state.score;
-                showFeedback('wrong');
-                const targetEl = document.getElementById(`q-${state.currentIndex}`);
-                if (targetEl) {
-                    targetEl.classList.add('animate-shake');
-                    setTimeout(() => targetEl.classList.remove('animate-shake'), 500);
-                }
-            }
-        }
-
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
-
-        init();
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
