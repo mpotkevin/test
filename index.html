@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專注力訓練產生器 - 職能治療師 鄭凱文</title>
-    <!-- 載入 React 與相關套件 -->
+    <title>色彩數字配對 - 職能治療師 鄭凱文</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -21,7 +20,6 @@
             transform-origin: top center;
         }
 
-        /* 優化 PDF 分頁邏輯，防止多餘空白頁 */
         #printable-area { 
             box-sizing: border-box;
             break-after: avoid; 
@@ -35,7 +33,7 @@
             #printable-area { 
                 transform: none !important; 
                 width: 210mm !important; 
-                height: 296.5mm !important; /* 微調高度防止溢出 */
+                height: 296.5mm !important; 
                 margin: 0 !important; 
                 overflow: hidden !important;
             }
@@ -74,8 +72,8 @@
         const App = () => {
             const [numCount, setNumCount] = useState(9);
             const [itemsPerBlock, setItemsPerBlock] = useState(9);
-            const [title, setTitle] = useState("專注力訓練");
-            const [subTitle, setSubTitle] = useState("根據方框的顏色，填上對應的數字");
+            const title = "色彩數字配對";
+            const subTitle = "根據方框的顏色，填上對應的數字";
             const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
             const [previewScale, setPreviewScale] = useState(0.65);
             const [allowDuplicate, setAllowDuplicate] = useState(false);
@@ -88,7 +86,7 @@
             const lastValidSettings = useRef({ itemsPerBlock, numCount });
 
             const blockCount = 6;
-            const fontSize = 24;
+            const fontSize = 32;
 
             const colorPalette = [
                 { name: '天藍', border: '#3498db' }, { name: '金黃', border: '#f1c40f' },
@@ -157,7 +155,7 @@
             useEffect(() => {
                 const checkOverflow = () => {
                     if (printRef.current) {
-                        const maxHeight = 1115; // 嚴格控制高度範圍
+                        const maxHeight = 1115; 
                         const currentHeight = printRef.current.scrollHeight;
                         if (currentHeight > maxHeight) {
                             if (itemsPerBlock > lastValidSettings.current.itemsPerBlock) setItemsPerBlock(lastValidSettings.current.itemsPerBlock);
@@ -169,7 +167,7 @@
                 };
                 const timer = setTimeout(checkOverflow, 50);
                 return () => clearTimeout(timer);
-            }, [questionBlocks, title, itemsPerBlock]);
+            }, [questionBlocks, itemsPerBlock]);
 
             const handleDownloadPDF = async () => {
                 setIsGenerating(true);
@@ -193,7 +191,7 @@
 
             const TrainingBox = ({ item, showNumber = false }) => (
                 <div className="aspect-[2/1] rounded-2xl border-[3.5px] flex items-center justify-center bg-white shadow-sm"
-                     style={{ borderColor: item.border, width: '100%', maxWidth: '100px', minWidth: '75px' }}>
+                     style={{ borderColor: item.border, width: '100%', maxWidth: '115px', minWidth: '75px' }}>
                     {showNumber && <span className="font-bold text-slate-800" style={{ fontSize: `${fontSize}px` }}>{item.num}</span>}
                 </div>
             );
@@ -213,11 +211,6 @@
                     </div>
                     
                     <div className="space-y-5">
-                        <section>
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">標題文字</label>
-                            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"/>
-                        </section>
-
                         <div className="grid grid-cols-1 gap-5">
                             <section>
                                 <div className="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -326,7 +319,6 @@
                                     ))}
                                 </div>
 
-                                {/* 移除頁尾內容，保持空白 */}
                                 <div className="mt-auto h-4"></div>
                             </div>
                         </div>
