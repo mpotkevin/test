@@ -3,700 +3,545 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>海洋冒險：尋找與計數紙本產生器</title>
-    <!-- 引入 Tailwind CSS 確保極致精美的響應式 UI -->
+    <title>賓果產生器 - 鄭凱文職能治療師設計</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 html2pdf.js 庫，用於前端直接生成 A4 PDF 並下載 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        :root {
-            --primary: #0284c7;
-            --primary-hover: #0369a1;
-            --bg-main: #f0f9ff;
-            --text-main: #1e293b;
-        }
-
-        body {
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            overflow-x: hidden;
-        }
-
-        /* --- 生物基礎樣式 --- */
-        .game-item {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        /* --- 🖨️ A4 預覽極致排版規格 --- */
-        .preview-container {
-            display: flex;
-            flex-direction: column;
-            gap: 40px;
-            align-items: center;
-            width: 100%;
-        }
-
-        .a4-page, .a4-page * {
-            box-sizing: border-box; /* 確保邊框內襯均勻，防止高度計算跑版 */
-        }
-
-        .a4-page {
-            background: white !important;
-            color: #1e293b !important;
-            width: 210mm;
-            height: 297mm; /* 嚴格固定 A4 實體高度 */
-            padding: 8mm 15mm 12mm 15mm; /* 極窄上方 Padding (8mm)，釋放頂部空間，徹底解決上方留白過多 */
-            position: relative;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            page-break-after: always;
-            break-after: always;
-        }
-
-        .a4-page:last-child {
-            page-break-after: avoid;
-            break-after: avoid;
-        }
-
-        .a4-page .title {
-            text-align: center;
-            font-size: 24pt;
-            font-weight: 900;
-            color: #0f172a;
-            letter-spacing: 2px;
-            height: 12mm; /* 嚴格控制標高，防止下擠 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 2mm;
-        }
-
-        .a4-page .subtitle {
-            text-align: center;
-            font-size: 11pt;
-            color: #475569;
-            height: 6mm; /* 壓縮副標高，釋放空間 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 4mm;
-        }
-
-        /* 題目/答案 分數欄 */
-        .a4-page .score-zone {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 3mm;
-            height: 24mm; /* 縮小格區固定高度 */
-            margin-bottom: 5mm;
-        }
-
-        .score-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            height: 24mm;
-        }
-
-        .score-item .emoji {
-            font-size: 26pt;
-            line-height: 1;
-        }
-
-        .score-box {
-            width: 12.5mm;
-            height: 12.5mm;
-            border: 2.5pt solid #1e293b;
-            border-radius: 3.5mm;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 15pt;
-            font-weight: bold;
-            background: white !important;
-        }
-
-        /* A4 遊戲主繪圖板高度調整為 210mm (完美防切，同時最大化繪圖板以利作答) */
-        .a4-page .game-board {
-            height: 210mm !important;
-            width: 100% !important;
-            border: 4pt solid #1e293b;
-            border-radius: 8mm;
-            background-color: #ffffff;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 0 !important;
-        }
-
-        /* 夢幻背景流動氣泡 (僅在網頁背景顯示，不影響列印) */
-        .bg-bubble {
-            position: fixed;
-            bottom: -60px;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, rgba(186,230,253,0.15) 70%);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            animation: floatUp linear infinite;
-        }
-        @keyframes floatUp {
-            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-            10% { opacity: 0.7; }
-            90% { opacity: 0.7; }
-            100% { transform: translateY(-115vh) rotate(360deg); opacity: 0; }
-        }
-
-        /* --- 🚀 PDF 生成過程的專用樣式覆蓋 --- */
-        .pdf-generating {
-            gap: 0 !important; /* 強制消除頁面之間的 Gap，防止累計高度造成多餘空白頁 */
-            row-gap: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        .pdf-generating .a4-page {
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            margin: 0 !important;
-            width: 210mm !important;
-            height: 296mm !important; /* 微縮 1mm 作為邊緣防護，確保不溢頁 */
-            padding: 8mm 15mm 12mm 15mm !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            page-break-after: always !important;
-            break-after: always !important;
-        }
-
-        .pdf-generating .a4-page:last-child {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-        }
-
-        .pdf-generating .game-board {
-            background: #ffffff !important;
-            border: 3.5pt solid #000000 !important;
-            box-shadow: none !important;
-        }
-
-        /* 僅題目卷在 PDF 模式下保持黑框線 */
-        .pdf-generating #question-score-zone .score-box {
-            border-color: #000000 !important;
-            color: #000000 !important;
-        }
-
-        /* 確保答案卷在 PDF 模式下精準保留紅色與粉紅底色 */
-        .pdf-generating #answer-score-zone .score-box {
-            border-color: #ef4444 !important;
-            color: #ef4444 !important;
-            background-color: #fef2f2 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        /* --- 🖨️ 原生列印樣式優化 --- */
-        @media print {
-            body {
-                background: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-
-            .no-print {
-                display: none !important;
-            }
-
-            .preview-container {
-                display: block !important;
-                width: auto !important;
-                height: auto !important;
-                transform: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-
-            #print-layout {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 0 !important; /* 消除原生列印時頁與頁之間的 Gap */
-                row-gap: 0 !important;
-            }
-
-            .a4-page {
-                width: 210mm !important;
-                height: 296mm !important;
-                padding: 8mm 15mm 12mm 15mm !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-                page-break-after: always !important;
-                break-after: always !important;
-                background: white !important;
-                color: black !important;
-            }
-
-            .a4-page:last-child {
-                page-break-after: avoid !important;
-                break-after: avoid !important;
-            }
-
-            .game-board {
-                background: #ffffff !important;
-                border: 3.5pt solid #000000 !important;
-                box-shadow: none !important;
-                height: 210mm !important;
-            }
-
-            #question-score-box {
-                border-color: #000000 !important;
-                color: #000000 !important;
-            }
-
-            /* 確保實體紙張列印時亦完美保留答案紅色 */
-            #answer-score-zone .score-box {
-                border-color: #ef4444 !important;
-                color: #ef4444 !important;
-                background-color: #fef2f2 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-
-            @page {
-                size: A4 portrait;
-                margin: 0;
-            }
-        }
-
-        /* 手機與平板適應性預覽比例調整 */
-        @media (max-width: 1024px) {
-            #preview-container {
-                transform: scale(0.85);
-                transform-origin: top center;
-                margin-bottom: -100px;
-            }
-        }
-        @media (max-width: 768px) {
-            #preview-container {
-                transform: scale(0.65);
-                transform-origin: top center;
-                margin-bottom: -300px;
-            }
-        }
-        @media (max-width: 480px) {
-            #preview-container {
-                transform: scale(0.42);
-                transform-origin: top center;
-                margin-bottom: -550px;
-            }
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoom-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+        .animate-zoom-in { animation: zoom-in 0.3s ease-out forwards; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4 md:p-8">
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
 
-    <!-- 頂部動態氣泡畫布背景 -->
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" id="bubbles-container"></div>
+    <script type="text/babel">
+        // --- 修正 React 18 全域變數讀取 ---
+        const useState = window.React.useState;
+        const useEffect = window.React.useEffect;
+        const useMemo = window.React.useMemo;
 
-    <!-- 頂部控制介面 (移除了系統列印按鈕) -->
-    <header class="no-print w-full max-w-5xl mb-8 text-center relative z-10 mt-2 flex flex-col items-center">
-        <h1 class="text-3xl md:text-4xl font-extrabold text-sky-950 tracking-wider flex items-center gap-2">
-            <span>🌊 FIND AND COUNT! 海洋大冒險</span>
-        </h1>
-        <p class="text-sky-600 mt-2 font-semibold text-sm md:text-base">專為紙本學習設計的 A4 尋寶與計數教材產生器</p>
-        
-        <!-- 功能控制面板 -->
-        <div class="mt-6 flex flex-wrap gap-4 items-center justify-center bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-sky-100 shadow-md w-full">
-            <div class="flex items-center gap-2">
-                <label for="difficulty" class="font-extrabold text-slate-700 whitespace-nowrap">難度設定：</label>
-                <select id="difficulty" onchange="generateGame()" class="border-2 border-sky-100 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none bg-white cursor-pointer transition-all">
-                    <option value="easy">簡單 (適合幼童/長者：物件大、數量少)</option>
-                    <option value="medium" selected>中等 (標準挑戰)</option>
-                    <option value="hard">困難 (挑戰眼力：物件小而密集)</option>
-                </select>
-            </div>
-            
-            <button onclick="generateGame()" class="px-6 py-2.5 bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-extrabold rounded-xl shadow-md shadow-sky-500/10 transition-all flex items-center gap-2">
-                <span>🔄 隨機重新產生題目</span>
-            </button>
-            
-            <button onclick="downloadPDF()" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-extrabold rounded-xl shadow-md shadow-emerald-500/10 transition-all flex items-center gap-2">
-                <span>📥 下載 A4 紙本 PDF (含答案)</span>
-            </button>
-        </div>
-    </header>
-
-    <!-- 主要內容區 -->
-    <main class="w-full max-w-5xl flex flex-col items-center justify-center relative z-10 mb-12">
-        
-        <!-- 🖨️ A4 預覽與下載容器 -->
-        <div id="preview-container" class="preview-container w-full">
-            <!-- 貼心提示列 -->
-            <div class="no-print bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl max-w-2xl text-xs md:text-sm flex flex-col gap-2 shadow-sm w-full mb-4">
-                <span class="font-extrabold flex items-center gap-1 text-sm">💡 A4 紙本列印與下載指南：</span>
-                <span class="pl-4 relative before:content-['•'] before:absolute before:left-0 before:font-bold">為了防切，我們已將 A4 上方多餘空白全部縮減，保留充足安全邊距。</span>
-                <span class="pl-4 relative before:content-['•'] before:absolute before:left-0 before:font-bold">點擊上方的<b>「下載 A4 紙本 PDF (含答案)」</b>，能直接存成最完美的防切 PDF 格式，且<b>解答框完美維持紅色</b>！</span>
-            </div>
-            
-            <div id="print-layout" class="flex flex-col gap-10 items-center w-full">
-                <!-- A4 第一頁：題目卷 -->
-                <div class="a4-page shadow-2xl" id="question-page">
-                    <h1 class="title">FIND AND COUNT! 海洋大冒險</h1>
-                    <p class="subtitle">數數看大框框裡有哪些海洋生物？並把正確的數量寫在正方形格子裡吧！</p>
-                    <div class="score-zone" id="question-score-zone"></div>
-                    <div class="game-board" id="question-board"></div>
-                    <!-- A4 底部版權/署名 (印出來時會優雅顯示在紙張最下方) -->
-                    <div class="absolute bottom-2 left-0 right-0 text-center text-[8pt] text-slate-400">
-                        設計：職能治療師 - 鄭凱文
-                    </div>
-                </div>
-
-                <!-- A4 第二頁：答案解答卷 -->
-                <div class="a4-page shadow-2xl" id="answer-page">
-                    <h1 class="title">【解答卷】FIND AND COUNT!</h1>
-                    <p class="subtitle text-rose-500 font-bold">這是解答頁，請核對與批改數量是否正確喔！</p>
-                    <div class="score-zone" id="answer-score-zone"></div>
-                    <div class="game-board" id="answer-board"></div>
-                    <!-- A4 底部版權/署名 -->
-                    <div class="absolute bottom-2 left-0 right-0 text-center text-[8pt] text-slate-400">
-                        設計：職能治療師 - 鄭凱文
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- 網頁頁尾與設計署名 -->
-    <footer class="no-print mt-12 mb-6 text-sm text-slate-500 text-center relative z-10">
-        設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" class="text-sky-600 hover:text-sky-700 font-bold underline transition-all">職能治療師 - 鄭凱文</a>
-    </footer>
-
-    <!-- 灑花粒子 Canvas 畫布 (PDF下載成功時使用) -->
-    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
-
-    <script>
-        // 設定海洋生物與對應的 Emoji
-        const pool = [
-            { id: 'fish', emoji: '🐟', name: '熱帶魚' },
-            { id: 'star', emoji: '⭐', name: '海星' },
-            { id: 'crab', emoji: '🦀', name: '螃蟹' },
-            { id: 'octopus', emoji: '🐙', name: '章魚' },
-            { id: 'turtle', emoji: '🐢', name: '海龜' },
-            { id: 'squid', emoji: '🦑', name: '烏賊' },
-            { id: 'whale', emoji: '🐋', name: '大鯨魚' },
-            { id: 'dolphin', emoji: '🐬', name: '海豚' }
-        ];
-
-        // 難度參數設定配置
-        const difficultySettings = {
-            easy: { totalItems: 24, itemSize: 55 },
-            medium: { totalItems: 52, itemSize: 38 },
-            hard: { totalItems: 88, itemSize: 26 }
+        // --- 內嵌 SVG 圖示組件 ---
+        const SvgIcon = ({ name, className = "w-5 h-5" }) => {
+            const icons = {
+                'layout-grid': <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>,
+                'settings': (
+                    <g>
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </g>
+                ),
+                'hash': <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>,
+                'type': <path d="M4 7V4h16v3M9 20h6M12 4v16"/>,
+                'shapes': (
+                    <g>
+                        <path d="M8.3 14a.7.7 0 0 1-.6-1.1l5.5-8a.7.7 0 0 1 1.2.3l.3 10.3a.7.7 0 0 1-1.2.5z"/>
+                        <path d="M12 14c-4.4 0-8 2-8 4s3.6 4 8 4 8-2 8-4-3.6-4-8-4z"/>
+                    </g>
+                ),
+                'apple': (
+                    <g>
+                        <path d="M12 22c4.97 0 9-3.024 9-6.75 0-3.153-2.454-4.838-4.5-5.25a3.75 3.75 0 0 0-4.5-3.375 3.75 3.75 0 0 0-4.5 3.375c-2.046.412-4.5 2.097-4.5 5.25C3 18.976 7.03 22 12 22z"/>
+                        <path d="M12 5V2"/>
+                    </g>
+                ),
+                'dog': (
+                    <g>
+                        <path d="M10 6L8 3M14 6l2-3M4.4 11.5L3 17m16.6-5.5L21 17M12 15v2m-3-4a3 3 0 1 0 6 0 3 3 0 1 0-6 0z"/>
+                        <path d="M9 13v.01M15 13v.01"/>
+                    </g>                ),
+                'upload': (
+                    <g>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </g>
+                ),
+                'printer': (
+                    <g>
+                        <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                        <path d="M6 14h12v8H6z"/>
+                    </g>
+                ),
+                'chevron-right': <path d="M9 18l6-6-6-6"/>,
+                'chevron-left': <path d="M15 18l-6-6 6-6"/>,
+                'play-circle': (
+                    <g>
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M10 8l6 4-6 4V8z"/>
+                    </g>
+                ),
+                'rotate-ccw': (
+                    <g>
+                        <path d="M1 4v6h6"/>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                    </g>
+                ),
+                'check-circle-2': (
+                    <g>
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </g>
+                ),
+                'edit-3': (
+                    <g>
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </g>
+                ),
+                'download': (
+                    <g>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </g>
+                )
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
         };
 
-        // 全域儲存當前關卡狀態
-        let currentGameState = null;
+        const GRID_SIZES = [3, 4, 5];
+        const DEFAULT_CHINESE = '福祿壽喜春秋冬夏金木水火土天地人平安健康快樂吉祥富貴圓滿長壽大吉好運百福千禧靈睿智勇誠信仁愛'.split('');
+                
+        const THEMES = {
+            numbers: { id: 'numbers', name: '基礎數字', icon: 'hash' },
+            chinese: { id: 'chinese', name: '國字版', icon: 'type' },
+            shapes: { id: 'shapes', name: '圖形版', icon: 'shapes' },
+            fruits: { id: 'fruits', name: '蔬果版', icon: 'apple' },
+            animals: { id: 'animals', name: '動物版', icon: 'dog' },
+            custom: { id: 'custom', name: '自己上傳', icon: 'upload' }
+        };
 
-        // --- 🎛️ 音效產生器 (Web Audio API) ---
-        let audioCtx = null;
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }
+        const LIBRARIES = {
+            numbers: Array.from({ length: 75 }, (_, i) => ({ id: `n-${i+1}`, content: (i + 1).toString(), type: 'text' })),
+            shapes: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⬛', '⬜', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⭐', '🌟', '✨', '🌙', '☀️', '☁️', '❄️', '🔥', '💧', '⚡', '🌀', '💎', '❤️', '🧡', '💛', '💚', '💙', '💜'].map((s, i) => ({ id: `s-${i}`, content: s, type: 'text' })),
+            fruits: ['🍎', '🍏', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🍅', '🥑', '🥦', '🥬', '🥒', '🌽', '🥕', '🥔', '🍠', '🍄', '🥜', '🌰', '🧅', '🧄', '🥝'].map((f, i) => ({ id: `f-${i}`, content: f, type: 'text' })),
+            animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞'].map((a, i) => ({ id: `a-${i}`, content: a, type: 'text' }))
+        };
 
-        // 成功音效
-        function playSuccessSound() {
-            initAudio();
-            if (!audioCtx) return;
-            const now = audioCtx.currentTime;
-            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-            notes.forEach((freq, idx) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-                gain.gain.setValueAtTime(0.08, now + idx * 0.08);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.25);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now + idx * 0.08);
-                osc.stop(now + idx * 0.08 + 0.25);
-            });
-        }
+        function App() {
+            const [gridSize, setGridSize] = useState(4);
+            const [activeTheme, setActiveTheme] = useState('numbers');
+            const [selectedItems, setSelectedItems] = useState(new Set());
+            const [customItems, setCustomItems] = useState([]);
+            const [customChineseInput, setCustomChineseInput] = useState('');
+            const [copies, setCopies] = useState(1);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [step, setStep] = useState(1); 
+            const [showResetModal, setShowResetModal] = useState(false);
+            const [drawnItems, setDrawnItems] = useState([]);
+            const [currentDrawn, setCurrentDrawn] = useState(null);
+            const [isRolling, setIsRolling] = useState(false);
 
-        // --- 🌊 主核心生成演算法 ---
-        function generateGame() {
-            const difficulty = document.getElementById('difficulty').value;
-            const config = difficultySettings[difficulty];
-            
-            // 1. 初始化計數器
-            const counts = {};
-            pool.forEach(p => counts[p.id] = 0);
+            const chineseLibrary = useMemo(() => {
+                const base = customChineseInput.length > 0 ? customChineseInput.split('') : DEFAULT_CHINESE;
+                return base.map((c, i) => ({ id: `c-${i}`, content: c, type: 'text' }));
+            }, [customChineseInput]);
 
-            // 2. 生成隨機座標與碰撞防重疊
-            const items = [];
-            let attempts = 0;
-            const maxAttempts = config.totalItems * 8; // 增加防撞係數確保排滿
+            const currentLibrary = useMemo(() => {
+                if (activeTheme === 'custom') return customItems;
+                if (activeTheme === 'chinese') return chineseLibrary;
+                return LIBRARIES[activeTheme] || [];
+            }, [activeTheme, customItems, chineseLibrary]);
 
-            while (items.length < config.totalItems && attempts < maxAttempts) {
-                attempts++;
-                // 留 6% 的邊框安全距離
-                const posX = Math.random() * 88 + 6; 
-                const posY = Math.random() * 88 + 6;
-                const target = pool[Math.floor(Math.random() * pool.length)];
+            useEffect(() => {
+                const needed = gridSize * gridSize;
+                const initialSelection = new Set();
+                currentLibrary.slice(0, Math.max(needed, 16)).forEach(item => initialSelection.add(item.id));
+                setSelectedItems(initialSelection);
+            }, [activeTheme, gridSize, currentLibrary]);
 
-                // 檢查碰撞半徑
-                let overlap = false;
-                for (let existing of items) {
-                    const dist = Math.hypot(posX - existing.x, posY - existing.y);
-                    if (dist < (config.itemSize / 5.5)) { 
-                        overlap = true;
-                        break;
+            const selectedPool = useMemo(() => currentLibrary.filter(item => selectedItems.has(item.id)), [currentLibrary, selectedItems]);
+
+            const previewNumbers = useMemo(() => {
+                const arr = Array.from({ length: gridSize * gridSize }, (_, i) => (i + 1).toString());
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }, [gridSize, step]);
+
+            const handleFileUpload = (e) => {
+                const files = Array.from(e.target.files);
+                const newItems = files.map((file, index) => ({
+                    id: `custom-${Date.now()}-${index}`,
+                    content: URL.createObjectURL(file),
+                    type: 'image'
+                }));
+                setCustomItems([...customItems, ...newItems]);
+                setActiveTheme('custom');
+            };
+
+            const toggleItem = (id) => {
+                const newSelection = new Set(selectedItems);
+                if (newSelection.has(id)) newSelection.delete(id);
+                else newSelection.add(id);
+                setSelectedItems(newSelection);
+            };
+
+            const shuffle = (array) => {
+                const newArr = [...array];
+                for (let i = newArr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+                }
+                return newArr;
+            };
+
+            const generatePDF = async () => {
+                if (selectedPool.length < gridSize * gridSize) return;
+                setIsGenerating(true);
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const html2canvas = window.html2canvas;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const container = document.getElementById('print-container');
+                    container.style.display = 'block';
+
+                    for (let i = 0; i < copies; i++) {
+                        const shuffled = shuffle(selectedPool).slice(0, gridSize * gridSize);
+                        renderBingoToDiv(shuffled, i + 1);
+                        const pageElement = document.getElementById(`bingo-page-${i}`);
+                        const canvas = await html2canvas(pageElement, { 
+                            scale: 2, 
+                            useCORS: true,
+                            backgroundColor: '#ffffff'
+                        });
+                        const imgData = canvas.toDataURL('image/png');
+                        if (i > 0) pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
                     }
+                    pdf.save(`賓果卡_${new Date().getTime()}.pdf`);
+                    container.style.display = 'none';
+                } catch (err) {
+                    console.error(err);
+                    alert("PDF 生成失敗");
+                } finally {
+                    setIsGenerating(false);
                 }
-
-                if (!overlap) {
-                    items.push({ x: posX, y: posY, ...target });
-                    counts[target.id]++;
-                }
-            }
-
-            // 保存當前關卡數據狀態
-            currentGameState = {
-                difficulty: difficulty,
-                items: items,
-                counts: counts,
-                config: config
             };
 
-            renderStateToUI();
-        }
-
-        // --- 🎨 渲染至 UI 畫面 ---
-        function renderStateToUI() {
-            if (!currentGameState) return;
-            const { items, counts, config } = currentGameState;
-
-            const qBoard = document.getElementById('question-board');
-            const aBoard = document.getElementById('answer-board');
-            const qScoreZone = document.getElementById('question-score-zone');
-            const aScoreZone = document.getElementById('answer-score-zone');
-
-            qBoard.innerHTML = '';
-            aBoard.innerHTML = '';
-            qScoreZone.innerHTML = '';
-            aScoreZone.innerHTML = '';
-
-            // 渲染題目 A4 區生物
-            items.forEach(item => {
-                const qElem = document.createElement('div');
-                qElem.className = 'game-item pointer-events-none';
-                qElem.style.left = `${item.x}%`;
-                qElem.style.top = `${item.y}%`;
-                qElem.style.fontSize = `${config.itemSize}px`;
-                qElem.innerHTML = item.emoji;
-                qBoard.appendChild(qElem);
-            });
-
-            // 渲染答案 A4 區生物
-            items.forEach(item => {
-                const aElem = document.createElement('div');
-                aElem.className = 'game-item pointer-events-none';
-                aElem.style.left = `${item.x}%`;
-                aElem.style.top = `${item.y}%`;
-                aElem.style.fontSize = `${config.itemSize}px`;
-                aElem.innerHTML = item.emoji;
-                aBoard.appendChild(aElem);
-            });
-
-            // 生成 A4 題目區手寫答案格
-            pool.forEach(p => {
-                const qItem = document.createElement('div');
-                qItem.className = 'score-item';
-                qItem.innerHTML = `
-                    <span class="emoji">${p.emoji}</span>
-                    <div class="score-box"></div>
-                `;
-                qScoreZone.appendChild(qItem);
-
-                // 生成 A4 答案區解答格 (套用紅色邊框及淺紅底色樣式)
-                const aItem = document.createElement('div');
-                aItem.className = 'score-item';
-                aItem.innerHTML = `
-                    <span class="emoji">${p.emoji}</span>
-                    <div class="score-box" style="background-color: #fef2f2; border-color: #ef4444; color: #ef4444;">
-                        ${counts[p.id]}
+            const renderBingoToDiv = (items, pageNum) => {
+                const container = document.getElementById(`bingo-page-${pageNum - 1}`);
+                if (!container) return;
+                container.innerHTML = `
+                    <div style="width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 0; margin: 0; box-sizing: border-box; overflow: hidden; position: relative;">
+                        <h1 style="margin: 0 0 8mm 0; font-size: 32pt; font-weight: 900; font-family: sans-serif; color: #000; text-align: center;">賓果遊戲卡</h1>
+                        <div style="width: 175mm; display: flex; justify-content: space-between; margin-bottom: 15mm; font-family: sans-serif; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #eee; padding-bottom: 8px;">
+                            <span>姓名：________________</span>
+                            <span>日期：____ 年 ____ 月 ____ 日</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(${gridSize}, 1fr); width: 175mm; height: 175mm; border: 5pt solid #000; background: #000; gap: 5pt; box-sizing: border-box; overflow: hidden;">
+                            ${items.map(item => {
+                                return `
+                                <div style="background: white; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; aspect-ratio: 1/1; overflow: hidden; box-sizing: border-box;">
+                                    ${item.type === 'text' 
+                                         ? `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; transform: translateY(-15%);">
+                                            <span style="font-size: ${gridSize === 5 ? '58pt' : gridSize === 4 ? '72pt' : '96pt'}; font-weight: 900; font-family: sans-serif; line-height: 1; display: block; margin: 0; padding: 0; text-align: center;">${item.content}</span>
+                                          </div>`
+                                         : `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                                            <img src="${item.content}" style="max-width: 90%; max-height: 90%; object-fit: contain; display: block;" />
+                                          </div>`
+                                    }
+                                </div>
+                                `}).join('')}
+                        </div>
+                        <div style="margin-top: 15mm; font-family: sans-serif; text-align: center;">
+                            <p style="font-size: 11pt; color: #666; margin: 0;">
+                                <a href="https://www.facebook.com/mpotkevin" target="_blank" style="color: #666; text-decoration: none;">設計：職能治療師 - 鄭凱文</a>
+                            </p>
+                        </div>
                     </div>
                 `;
-                aScoreZone.appendChild(aItem);
-            });
-        }
-
-        // --- 📥 A4 PDF 生成並直接下載實作 ---
-        async function downloadPDF() {
-            initAudio();
-            
-            // 建立一幅夢幻的載入轉圈畫面
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-md flex flex-col items-center justify-center z-50 text-white font-bold gap-4';
-            loadingOverlay.innerHTML = `
-                <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-sky-400"></div>
-                <div class="text-xl tracking-wider">正在產生防切 A4 PDF...</div>
-                <div class="text-sm text-slate-300 font-medium">請稍候，我們正在完成 A4 高畫質轉換且保持解答紅色樣式</div>
-            `;
-            document.body.appendChild(loadingOverlay);
-
-            const printLayout = document.getElementById('print-layout');
-            printLayout.classList.add('pdf-generating');
-
-            const levelTextMap = { 'easy': '簡單', 'medium': '中等', 'hard': '困難' };
-            const currentLevelName = levelTextMap[document.getElementById('difficulty').value] || '';
-
-            // html2pdf 設定參數 (鎖定 A4 寬高，並確保 pagebreak 正確運作)
-            const opt = {
-                margin: 0,
-                filename: `海洋大冒險_尋找與計數_${currentLevelName}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2.2,         // 提升清晰度，防止表情符號及文字邊框發虛
-                    useCORS: true,
-                    logging: false,
-                    letterRendering: true
-                },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: 'css' }
             };
 
-            try {
-                // 使用 html2pdf 生成並直接下載
-                await html2pdf().set(opt).from(printLayout).save();
-                playSuccessSound();
-                triggerConfetti();
-                showNotification('✨ PDF 檔案已完美產生並開始下載！', 'success');
-            } catch (error) {
-                console.error("PDF下載錯誤:", error);
-                showNotification('❌ 下載時發生一些問題，請再試一次。', 'error');
-            } finally {
-                printLayout.classList.remove('pdf-generating');
-                document.body.removeChild(loadingOverlay);
-            }
-        }
-
-        // --- 漂浮氣泡通知機制 ---
-        function showNotification(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `fixed bottom-6 right-6 px-6 py-3.5 rounded-2xl shadow-2xl z-50 transition-all transform translate-y-10 opacity-0 flex items-center gap-3 font-bold text-sm ${
-                type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-            }`;
-            toast.innerHTML = `
-                <span>${type === 'success' ? '✨' : '⚠️'}</span>
-                <span>${message}</span>
-            `;
-            document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.remove('translate-y-10', 'opacity-0');
-            }, 10);
-            setTimeout(() => {
-                toast.classList.add('translate-y-10', 'opacity-0');
-                setTimeout(() => {
-                    document.body.removeChild(toast);
-                }, 300);
-            }, 4000);
-        }
-
-        // --- 🎈 背景上升泡泡特效生成器 ---
-        function spawnBackgroundBubbles() {
-            const container = document.getElementById('bubbles-container');
-            container.innerHTML = '';
-            for (let i = 0; i < 18; i++) {
-                const b = document.createElement('div');
-                b.className = 'bg-bubble';
-                const size = Math.random() * 45 + 15;
-                b.style.width = `${size}px`;
-                b.style.height = `${size}px`;
-                b.style.left = `${Math.random() * 100}vw`;
-                b.style.animationDuration = `${Math.random() * 14 + 6}s`;
-                b.style.animationDelay = `${Math.random() * 6}s`;
-                container.appendChild(b);
-            }
-        }
-
-        // --- 🎉 彩色紙屑特效 Canvas 實作 ---
-        function triggerConfetti() {
-            const canvas = document.getElementById('confetti-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            let particles = [];
-            const colors = ['#38bdf8', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
-
-            for (let i = 0; i < 120; i++) {
-                particles.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height - canvas.height,
-                    r: Math.random() * 5 + 4,
-                    d: Math.random() * canvas.height,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    tilt: Math.random() * 10 - 5,
-                    tiltAngleIncremental: Math.random() * 0.08 + 0.02,
-                    tiltAngle: 0
-                });
-            }
-
-            let animationId;
-            function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                let active = false;
-                particles.forEach((p, idx) => {
-                    p.tiltAngle += p.tiltAngleIncremental;
-                    p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2.2;
-                    p.x += Math.sin(p.tiltAngle);
-                    p.tilt = Math.sin(p.tiltAngle - idx / 3) * 12;
-
-                    if (p.y < canvas.height) active = true;
-
-                    ctx.beginPath();
-                    ctx.lineWidth = p.r;
-                    ctx.strokeStyle = p.color;
-                    ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
-                    ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
-                    ctx.stroke();
-                });
-
-                if (active) {
-                    animationId = requestAnimationFrame(draw);
-                } else {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const drawNext = () => {
+                const available = selectedPool.filter(item => !drawnItems.find(d => d.id === item.id));
+                if (available.length === 0) {
+                    alert("已經全部抽完囉！");
+                    return;
                 }
-            }
-            draw();
+                setIsRolling(true);
+                let count = 0;
+                const interval = setInterval(() => {
+                    setCurrentDrawn(available[Math.floor(Math.random() * available.length)]);
+                    count++;
+                    if (count > 12) {
+                        clearInterval(interval);
+                        const final = available[Math.floor(Math.random() * available.length)];
+                        setCurrentDrawn(final);
+                        setDrawnItems(prev => [final, ...prev]);
+                        setIsRolling(false);
+                    }
+                }, 80);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <header className="bg-white border-b sticky top-0 z-30 shadow-sm px-4 h-16 flex items-center justify-between text-slate-800">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-indigo-600 p-2 rounded-lg text-white">
+                                <SvgIcon name="layout-grid" />
+                            </div>
+                            <h1 className="text-xl font-bold tracking-tight">長者賓果產生器</h1>
+                        </div>
+                        <div className="hidden md:flex gap-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            <span className={step === 1 ? "text-indigo-600" : ""}>1. 設定</span>
+                            <span className={step === 2 ? "text-indigo-600" : ""}>2. 挑選</span>
+                            <span className={step === 3 ? "text-indigo-600" : ""}>3. 輸出</span>
+                            <span className={step === 4 ? "text-indigo-600" : ""}>4. 遊戲</span>
+                        </div>
+                    </header>
+
+                    <main className="max-w-4xl mx-auto p-4 md:p-8 flex-grow w-full text-slate-800">
+                        {step === 1 && (
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-8 animate-fade-in">
+                                <h2 className="text-2xl font-black mb-2">1. 基本設定</h2>
+                                <div className="grid md:grid-cols-2 gap-10">
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-bold text-slate-500 uppercase">賓果盤尺寸</label>
+                                        <div className="flex gap-4">
+                                            {GRID_SIZES.map(size => (
+                                                <button key={size} onClick={() => setGridSize(size)} className={`flex-1 py-6 rounded-2xl border-2 transition-all ${gridSize === size ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md" : "border-slate-100 bg-white hover:border-slate-300"}`}>
+                                                    <div className="text-2xl font-black">{size}×{size}</div>
+                                                    <div className="text-xs opacity-60">{size*size} 格</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-bold text-slate-500 uppercase">選擇主題庫</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.values(THEMES).map(t => (
+                                                <button key={t.id} onClick={() => setActiveTheme(t.id)} className={`flex items-center gap-2 p-4 rounded-xl border text-sm font-medium transition-all ${activeTheme === t.id ? "bg-indigo-600 text-white shadow-md" : "bg-white hover:bg-slate-50 text-slate-700"}`}>
+                                                    <SvgIcon name={t.icon} className="w-4 h-4" /> {t.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end pt-4">
+                                    <button onClick={() => setStep(2)} className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all">下一步 <SvgIcon name="chevron-right" /></button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 2 && (
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-6 animate-fade-in">
+                                <div className="flex justify-between items-end border-b pb-6 text-slate-800">
+                                    <div className="w-full">
+                                        <h2 className="text-2xl font-black mb-2">2. 挑選內容</h2>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-slate-500 text-sm">已選: <span className="text-indigo-600 font-bold">{selectedItems.size}</span> (需至少 {gridSize*gridSize} 個項目)</p>
+                                            <div className="flex gap-2 text-slate-800">
+                                                <button onClick={() => setSelectedItems(new Set(currentLibrary.map(i => i.id)))} className="text-xs font-bold bg-slate-100 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">全選</button>
+                                                <button onClick={() => setSelectedItems(new Set())} className="text-xs font-bold bg-slate-100 px-4 py-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors">清空</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {activeTheme === 'chinese' && (
+                                    <div className="space-y-3 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                                        <label className="text-sm font-bold text-indigo-700 flex items-center gap-2"><SvgIcon name="edit-3" className="w-4 h-4" /> 自定義國字 (請直接輸入)</label>
+                                        <input type="text" value={customChineseInput} onChange={(e) => setCustomChineseInput(e.target.value)} placeholder="例如：春、福、喜、樂..." className="w-full p-4 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 outline-none transition-all" />
+                                    </div>
+                                )}
+
+                                {activeTheme === 'custom' && (
+                                    <div className="border-2 border-dashed border-indigo-200 bg-indigo-50/30 p-8 rounded-2xl text-center cursor-pointer hover:bg-indigo-50 transition-colors">
+                                        <input type="file" multiple accept="image/*" onChange={handleFileUpload} id="up" className="hidden" />
+                                        <label htmlFor="up" className="cursor-pointer flex flex-col items-center gap-3">
+                                            <SvgIcon name="upload" className="w-8 h-8 text-indigo-600" />
+                                            <p className="font-bold text-slate-700">上傳專屬圖片</p>
+                                        </label>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-7 gap-3 max-h-[45vh] overflow-y-auto p-4 bg-slate-100 rounded-2xl custom-scrollbar border border-slate-200">
+                                    {currentLibrary.map(item => (
+                                        <div key={item.id} onClick={() => toggleItem(item.id)} className={`relative aspect-square rounded-2xl cursor-pointer flex items-center justify-center border-4 transition-all ${selectedItems.has(item.id) ? "border-indigo-500 bg-white scale-95 shadow-md" : "border-white bg-white/60 hover:bg-white"}`}>
+                                            <div className="w-[85%] h-[85%] flex items-center justify-center overflow-hidden">
+                                                {item.type === 'text' ? (
+                                                    <span className="text-3xl font-black text-slate-800">{item.content}</span>
+                                                ) : (
+                                                    <img src={item.content} className="max-w-full max-h-full object-contain" />
+                                                )}
+                                            </div>
+                                            {selectedItems.has(item.id) && <div className="absolute -top-1 -right-1 bg-indigo-600 text-white rounded-full p-0.5 shadow-sm border border-white"><SvgIcon name="check-circle-2" className="w-4 h-4" /></div>}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6">
+                                    <button onClick={() => setStep(1)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
+                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 上一步
+                                    </button>
+                                    <button onClick={() => setStep(3)} disabled={selectedItems.size < gridSize*gridSize} className={`w-full sm:w-auto px-10 py-4 rounded-2xl font-bold shadow-lg transition-all ${selectedItems.size < gridSize*gridSize ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>下一步</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 3 && (
+                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-8 animate-fade-in">
+                                <h2 className="text-2xl font-black mb-2">3. 輸出設定與份數</h2>
+                                <div className="grid md:grid-cols-2 gap-12 text-slate-700">
+                                    <div className="space-y-8">
+                                        <div className="space-y-4">
+                                            <label className="block text-sm font-bold text-slate-500 uppercase tracking-widest">要列印幾份？ (自動隨機洗牌)</label>
+                                            <input type="number" min="1" max="100" value={copies} onChange={(e) => setCopies(Math.max(1, parseInt(e.target.value) || 1))} className="w-full text-4xl font-black text-indigo-600 border-2 border-indigo-100 rounded-2xl p-5 focus:border-indigo-500 outline-none transition-all" />
+                                        </div>
+                                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-900 text-sm">
+                                            <p className="font-bold flex items-center gap-2 mb-1"><SvgIcon name="edit-3" className="w-4 h-4" /> 紙本作業提醒</p>
+                                            <p>生成的 PDF 將包含姓名、日期填寫欄，標題為「賓果遊戲卡」。</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                        <p className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-widest">排版範本預覽</p>
+                                        <div className="w-64 aspect-[1/1.4] bg-white shadow-2xl rounded-sm border p-4 flex flex-col items-center justify-center gap-4">
+                                            <div className="w-full h-4 border-b border-slate-100"></div>
+                                            <div className={`grid grid-cols-${gridSize} gap-1 w-full aspect-square bg-slate-900 border-2 border-slate-900`}>
+                                                {previewNumbers.map((num, i) => (
+                                                    <div key={i} className="bg-white flex items-center justify-center text-xl font-black text-slate-800">{num}</div>
+                                                ))}
+                                            </div>
+                                            <div className="w-1/2 h-1 bg-slate-50"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                                                
+                                <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 pt-8">
+                                    <button onClick={() => setStep(2)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
+                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 上一步
+                                    </button>
+                                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                        <button onClick={() => setStep(4)} className="w-full sm:w-auto bg-white border-2 border-indigo-600 text-indigo-600 px-8 py-4 rounded-2xl font-bold hover:bg-indigo-50 transition-all shadow-sm">開啟抽籤器</button>
+                                        <button onClick={generatePDF} disabled={isGenerating} className="w-full sm:w-auto bg-green-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-all disabled:bg-slate-300">
+                                            {isGenerating ? "處理中..." : <><SvgIcon name="download" className="w-5 h-5"/> 下載 PDF</>}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 4 && (
+                            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border space-y-6 animate-zoom-in">
+                                <div className="flex justify-between items-center border-b pb-4 text-slate-800">
+                                    <h2 className="text-xl md:text-2xl font-black flex items-center gap-3 text-indigo-600"><SvgIcon name="play-circle" /> 現場互動抽籤器</h2>
+                                    <button onClick={() => setShowResetModal(true)} className="text-slate-400 hover:text-red-500 flex items-center gap-2 font-bold text-sm transition-colors px-3 py-1 hover:bg-red-50 rounded-lg">
+                                        <SvgIcon name="rotate-ccw" className="w-4 h-4" /> 重置遊戲
+                                    </button>
+                                </div>
+
+                                <div className="grid lg:grid-cols-12 gap-8">
+                                    <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-900 rounded-[2.5rem] p-8 min-h-[400px] shadow-2xl relative border-b-4 border-indigo-600 overflow-hidden">
+                                        {currentDrawn ? (
+                                            <div className={`flex flex-col items-center gap-6 animate-zoom-in ${isRolling ? 'opacity-40' : 'opacity-100'}`}>
+                                                <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-8 border-indigo-500 flex items-center justify-center w-64 h-64 md:w-80 md:h-80 overflow-hidden">
+                                                    {currentDrawn.type === 'text' ? (
+                                                        <div className="w-full h-full flex items-center justify-center transform translateY-[-15%]">
+                                                            <span className="text-[120px] md:text-[160px] font-black text-slate-900 leading-none">{currentDrawn.content}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <img src={currentDrawn.content} className="max-w-[95%] max-h-[95%] object-contain" />
+                                                    )}
+                                                </div>
+                                                {!isRolling && (
+                                                    <div className="text-white text-3xl font-black bg-indigo-600 px-10 py-3 rounded-full shadow-lg animate-bounce text-center">
+                                                        請圈選：{currentDrawn.type === 'text' ? currentDrawn.content : '這個圖案'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="text-slate-500 text-center">
+                                                <SvgIcon name="play-circle" className="w-20 h-20 mx-auto mb-4 opacity-20 text-white" />
+                                                <p className="text-white text-xl font-bold">準備好開始挑戰了嗎？</p>
+                                                <p className="text-slate-400 mt-1">點擊下方按鈕開始隨機抽籤</p>
+                                            </div>
+                                        )}
+                                        <button onClick={drawNext} disabled={isRolling} className={`mt-10 bg-white text-slate-900 w-full max-w-sm py-6 rounded-2xl text-2xl font-black shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:scale-105 transition-all ${isRolling ? 'opacity-50 cursor-wait' : 'hover:bg-indigo-50'}`}>
+                                            {isRolling ? '抽籤中...' : '抽下一球'}
+                                        </button>
+                                    </div>
+
+                                    <div className="lg:col-span-5 bg-slate-100 rounded-3xl p-4 md:p-6 border border-slate-200 flex flex-col max-h-[500px] md:max-h-[600px] shadow-inner">
+                                        <h3 className="font-black text-slate-600 text-sm uppercase mb-4 flex justify-between tracking-widest border-b border-slate-200 pb-2">已抽出紀錄 ({drawnItems.length})</h3>
+                                        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar">
+                                            {drawnItems.map((item, idx) => (
+                                                <div key={idx} className="bg-white rounded-3xl border-2 border-slate-200 flex items-center justify-center aspect-square relative shadow-lg z-0 hover:border-indigo-400 transition-all group animate-zoom-in">
+                                                    <span className="absolute top-2 left-2 text-[12px] bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-black z-20 shadow-sm opacity-80">
+                                                        {drawnItems.length - idx}
+                                                    </span>
+                                                                                                        
+                                                    <div className="w-full h-full flex items-center justify-center pointer-events-none z-10 overflow-hidden p-4">
+                                                        {item.type === 'text' ? (
+                                                            <span className="text-6xl md:text-7xl font-black text-slate-900 leading-none transform -translate-y-[10%] inline-block text-center">
+                                                                {item.content}
+                                                            </span>
+                                                        ) : (
+                                                            <img src={item.content} className="w-[90%] h-[90%] object-contain" />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {drawnItems.length === 0 && <div className="col-span-full py-32 text-center text-slate-400 text-sm font-bold italic">尚無抽出的球</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="pt-2">
+                                    <button onClick={() => setStep(3)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
+                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 返回設定
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="text-center py-8 text-slate-400 text-sm border-t bg-white">
+                        <a href="https://www.facebook.com/mpotkevin" target="_blank" rel="noopener noreferrer" className="text-slate-400 font-bold hover:text-indigo-600 transition-colors underline decoration-dotted underline-offset-4">
+                            設計：職能治療師 - 鄭凱文
+                        </a>
+                    </footer>
+
+                    {showResetModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl animate-zoom-in border border-slate-100">
+                                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <SvgIcon name="rotate-ccw" className="w-8 h-8" />
+                                </div>
+                                <h3 className="text-xl font-bold text-center mb-2 text-slate-800">確定要重新開始？</h3>
+                                <p className="text-slate-500 text-center text-sm mb-8">目前的抽籤紀錄將會被全部清除，此動作無法復原。</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowResetModal(false)} className="flex-1 py-3 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">取消</button>
+                                    <button onClick={() => { setDrawnItems([]); setCurrentDrawn(null); setShowResetModal(false); }} className="flex-1 py-3 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-lg shadow-red-100 transition-colors">確定重置</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div id="print-container" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', display: 'none', background: 'white' }}>
+                        {Array.from({ length: copies }).map((_, i) => (
+                            <div key={i} id={`bingo-page-${i}`} style={{ width: '210mm', height: '297mm', background: 'white' }}></div>
+                        ))}
+                    </div>
+                </div>
+            );
         }
 
-        // --- 🚀 初始化遊戲 ---
-        window.onload = function() {
-            generateGame();
-            spawnBackgroundBubbles();
-        };
-
-        // 隨螢幕縮放自適應重新計算大小
-        window.onresize = function() {
-            const canvas = document.getElementById('confetti-canvas');
-            if (canvas) {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }
-        };
+        // --- 修正 React 18 根節點渲染掛載 ---
+        const container = document.getElementById('root');
+        const root = window.ReactDOM.createRoot(container);
+        root.render(<App />);
     </script>
 </body>
 </html>
