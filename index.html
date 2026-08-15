@@ -2,546 +2,1262 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>賓果產生器 - 鄭凱文職能治療師設計</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>大小比一比：專注與敏捷度訓練網頁遊戲</title>
+    <!-- Tailwind CSS for modern responsive styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        clinical: {
+                            bg: '#f1f5f9',
+                            card: '#ffffff',
+                            primary: '#2563eb',
+                            primaryHover: '#1d4ed8',
+                            teal: '#0d9488',
+                            amber: '#d97706',
+                            rose: '#e11d48',
+                            success: '#16a34a',
+                            text: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes zoom-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
-        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
-        .animate-zoom-in { animation: zoom-in 0.3s ease-out forwards; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
-
-    <script type="text/babel">
-        // --- 修正 React 18 全域變數讀取 ---
-        const useState = window.React.useState;
-        const useEffect = window.React.useEffect;
-        const useMemo = window.React.useMemo;
-
-        // --- 內嵌 SVG 圖示組件 ---
-        const SvgIcon = ({ name, className = "w-5 h-5" }) => {
-            const icons = {
-                'layout-grid': <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>,
-                'settings': (
-                    <g>
-                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                    </g>
-                ),
-                'hash': <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>,
-                'type': <path d="M4 7V4h16v3M9 20h6M12 4v16"/>,
-                'shapes': (
-                    <g>
-                        <path d="M8.3 14a.7.7 0 0 1-.6-1.1l5.5-8a.7.7 0 0 1 1.2.3l.3 10.3a.7.7 0 0 1-1.2.5z"/>
-                        <path d="M12 14c-4.4 0-8 2-8 4s3.6 4 8 4 8-2 8-4-3.6-4-8-4z"/>
-                    </g>
-                ),
-                'apple': (
-                    <g>
-                        <path d="M12 22c4.97 0 9-3.024 9-6.75 0-3.153-2.454-4.838-4.5-5.25a3.75 3.75 0 0 0-4.5-3.375 3.75 3.75 0 0 0-4.5 3.375c-2.046.412-4.5 2.097-4.5 5.25C3 18.976 7.03 22 12 22z"/>
-                        <path d="M12 5V2"/>
-                    </g>
-                ),
-                'dog': (
-                    <g>
-                        <path d="M10 6L8 3M14 6l2-3M4.4 11.5L3 17m16.6-5.5L21 17M12 15v2m-3-4a3 3 0 1 0 6 0 3 3 0 1 0-6 0z"/>
-                        <path d="M9 13v.01M15 13v.01"/>
-                    </g>                ),
-                'upload': (
-                    <g>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                    </g>
-                ),
-                'printer': (
-                    <g>
-                        <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                        <path d="M6 14h12v8H6z"/>
-                    </g>
-                ),
-                'chevron-right': <path d="M9 18l6-6-6-6"/>,
-                'chevron-left': <path d="M15 18l-6-6 6-6"/>,
-                'play-circle': (
-                    <g>
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M10 8l6 4-6 4V8z"/>
-                    </g>
-                ),
-                'rotate-ccw': (
-                    <g>
-                        <path d="M1 4v6h6"/>
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                    </g>
-                ),
-                'check-circle-2': (
-                    <g>
-                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                        <path d="M9 12l2 2 4-4"/>
-                    </g>
-                ),
-                'edit-3': (
-                    <g>
-                        <path d="M12 20h9"/>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </g>
-                ),
-                'download': (
-                    <g>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                    </g>
-                )
-            };
-            return (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                    {icons[name]}
-                </svg>
-            );
-        };
-
-        const GRID_SIZES = [3, 4, 5];
-        const DEFAULT_CHINESE = '福祿壽喜春秋冬夏金木水火土天地人平安健康快樂吉祥富貴圓滿長壽大吉好運百福千禧靈睿智勇誠信仁愛'.split('');
-                
-        const THEMES = {
-            numbers: { id: 'numbers', name: '基礎數字', icon: 'hash' },
-            chinese: { id: 'chinese', name: '國字版', icon: 'type' },
-            shapes: { id: 'shapes', name: '圖形版', icon: 'shapes' },
-            fruits: { id: 'fruits', name: '蔬果版', icon: 'apple' },
-            animals: { id: 'animals', name: '動物版', icon: 'dog' },
-            custom: { id: 'custom', name: '自己上傳', icon: 'upload' }
-        };
-
-        const LIBRARIES = {
-            numbers: Array.from({ length: 75 }, (_, i) => ({ id: `n-${i+1}`, content: (i + 1).toString(), type: 'text' })),
-            shapes: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⬛', '⬜', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⭐', '🌟', '✨', '🌙', '☀️', '☁️', '❄️', '🔥', '💧', '⚡', '🌀', '💎', '❤️', '🧡', '💛', '💚', '💙', '💜'].map((s, i) => ({ id: `s-${i}`, content: s, type: 'text' })),
-            fruits: ['🍎', '🍏', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🍅', '🥑', '🥦', '🥬', '🥒', '🌽', '🥕', '🥔', '🍠', '🍄', '🥜', '🌰', '🧅', '🧄', '🥝'].map((f, i) => ({ id: `f-${i}`, content: f, type: 'text' })),
-            animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞'].map((a, i) => ({ id: `a-${i}`, content: a, type: 'text' }))
-        };
-
-        function App() {
-            const [gridSize, setGridSize] = useState(4);
-            const [activeTheme, setActiveTheme] = useState('numbers');
-            const [selectedItems, setSelectedItems] = useState(new Set());
-            const [customItems, setCustomItems] = useState([]);
-            const [customChineseInput, setCustomChineseInput] = useState('');
-            const [copies, setCopies] = useState(1);
-            const [isGenerating, setIsGenerating] = useState(false);
-            const [step, setStep] = useState(1); 
-            const [showResetModal, setShowResetModal] = useState(false);
-            const [drawnItems, setDrawnItems] = useState([]);
-            const [currentDrawn, setCurrentDrawn] = useState(null);
-            const [isRolling, setIsRolling] = useState(false);
-
-            const chineseLibrary = useMemo(() => {
-                const base = customChineseInput.length > 0 ? customChineseInput.split('') : DEFAULT_CHINESE;
-                return base.map((c, i) => ({ id: `c-${i}`, content: c, type: 'text' }));
-            }, [customChineseInput]);
-
-            const currentLibrary = useMemo(() => {
-                if (activeTheme === 'custom') return customItems;
-                if (activeTheme === 'chinese') return chineseLibrary;
-                return LIBRARIES[activeTheme] || [];
-            }, [activeTheme, customItems, chineseLibrary]);
-
-            useEffect(() => {
-                const needed = gridSize * gridSize;
-                const initialSelection = new Set();
-                currentLibrary.slice(0, Math.max(needed, 16)).forEach(item => initialSelection.add(item.id));
-                setSelectedItems(initialSelection);
-            }, [activeTheme, gridSize, currentLibrary]);
-
-            const selectedPool = useMemo(() => currentLibrary.filter(item => selectedItems.has(item.id)), [currentLibrary, selectedItems]);
-
-            const previewNumbers = useMemo(() => {
-                const arr = Array.from({ length: gridSize * gridSize }, (_, i) => (i + 1).toString());
-                for (let i = arr.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [arr[i], arr[j]] = [arr[j], arr[i]];
-                }
-                return arr;
-            }, [gridSize, step]);
-
-            const handleFileUpload = (e) => {
-                const files = Array.from(e.target.files);
-                const newItems = files.map((file, index) => ({
-                    id: `custom-${Date.now()}-${index}`,
-                    content: URL.createObjectURL(file),
-                    type: 'image'
-                }));
-                setCustomItems([...customItems, ...newItems]);
-                setActiveTheme('custom');
-            };
-
-            const toggleItem = (id) => {
-                const newSelection = new Set(selectedItems);
-                if (newSelection.has(id)) newSelection.delete(id);
-                else newSelection.add(id);
-                setSelectedItems(newSelection);
-            };
-
-            const shuffle = (array) => {
-                const newArr = [...array];
-                for (let i = newArr.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-                }
-                return newArr;
-            };
-
-            const generatePDF = async () => {
-                if (selectedPool.length < gridSize * gridSize) return;
-                setIsGenerating(true);
-                try {
-                    const { jsPDF } = window.jspdf;
-                    const html2canvas = window.html2canvas;
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    const container = document.getElementById('print-container');
-                    container.style.display = 'block';
-
-                    for (let i = 0; i < copies; i++) {
-                        const shuffled = shuffle(selectedPool).slice(0, gridSize * gridSize);
-                        renderBingoToDiv(shuffled, i + 1);
-                        const pageElement = document.getElementById(`bingo-page-${i}`);
-                        const canvas = await html2canvas(pageElement, { 
-                            scale: 2, 
-                            useCORS: true,
-                            backgroundColor: '#ffffff'
-                        });
-                        const imgData = canvas.toDataURL('image/png');
-                        if (i > 0) pdf.addPage();
-                        pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
-                    }
-                    pdf.save(`賓果卡_${new Date().getTime()}.pdf`);
-                    container.style.display = 'none';
-                } catch (err) {
-                    console.error(err);
-                    alert("PDF 生成失敗");
-                } finally {
-                    setIsGenerating(false);
-                }
-            };
-
-            const renderBingoToDiv = (items, pageNum) => {
-                const container = document.getElementById(`bingo-page-${pageNum - 1}`);
-                if (!container) return;
-                container.innerHTML = `
-                    <div style="width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 0; margin: 0; box-sizing: border-box; overflow: hidden; position: relative;">
-                        <h1 style="margin: 0 0 8mm 0; font-size: 32pt; font-weight: 900; font-family: sans-serif; color: #000; text-align: center;">賓果遊戲卡</h1>
-                        <div style="width: 175mm; display: flex; justify-content: space-between; margin-bottom: 15mm; font-family: sans-serif; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #eee; padding-bottom: 8px;">
-                            <span>姓名：________________</span>
-                            <span>日期：____ 年 ____ 月 ____ 日</span>
-                        </div>
-                        <div style="display: grid; grid-template-columns: repeat(${gridSize}, 1fr); width: 175mm; height: 175mm; border: 5pt solid #000; background: #000; gap: 5pt; box-sizing: border-box; overflow: hidden;">
-                            ${items.map(item => {
-                                return `
-                                <div style="background: white; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; aspect-ratio: 1/1; overflow: hidden; box-sizing: border-box;">
-                                    ${item.type === 'text' 
-                                         ? `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; transform: translateY(-15%);">
-                                            <span style="font-size: ${gridSize === 5 ? '58pt' : gridSize === 4 ? '72pt' : '96pt'}; font-weight: 900; font-family: sans-serif; line-height: 1; display: block; margin: 0; padding: 0; text-align: center;">${item.content}</span>
-                                          </div>`
-                                         : `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-                                            <img src="${item.content}" style="max-width: 90%; max-height: 90%; object-fit: contain; display: block;" />
-                                          </div>`
-                                    }
-                                </div>
-                                `}).join('')}
-                        </div>
-                        <div style="margin-top: 15mm; font-family: sans-serif; text-align: center;">
-                            <p style="font-size: 11pt; color: #666; margin: 0;">
-                                <a href="https://www.facebook.com/mpotkevin" target="_blank" style="color: #666; text-decoration: none;">設計：職能治療師 - 鄭凱文</a>
-                            </p>
-                        </div>
-                    </div>
-                `;
-            };
-
-            const drawNext = () => {
-                const available = selectedPool.filter(item => !drawnItems.find(d => d.id === item.id));
-                if (available.length === 0) {
-                    alert("已經全部抽完囉！");
-                    return;
-                }
-                setIsRolling(true);
-                let count = 0;
-                const interval = setInterval(() => {
-                    setCurrentDrawn(available[Math.floor(Math.random() * available.length)]);
-                    count++;
-                    if (count > 12) {
-                        clearInterval(interval);
-                        const final = available[Math.floor(Math.random() * available.length)];
-                        setCurrentDrawn(final);
-                        setDrawnItems(prev => [final, ...prev]);
-                        setIsRolling(false);
-                    }
-                }, 80);
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col">
-                    <header className="bg-white border-b sticky top-0 z-30 shadow-sm px-4 h-16 flex items-center justify-between text-slate-800">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-indigo-600 p-2 rounded-lg text-white">
-                                <SvgIcon name="layout-grid" />
-                            </div>
-                            <h1 className="text-xl font-bold tracking-tight">長者賓果產生器</h1>
-                        </div>
-                        <div className="hidden md:flex gap-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                            <span className={step === 1 ? "text-indigo-600" : ""}>1. 設定</span>
-                            <span className={step === 2 ? "text-indigo-600" : ""}>2. 挑選</span>
-                            <span className={step === 3 ? "text-indigo-600" : ""}>3. 輸出</span>
-                            <span className={step === 4 ? "text-indigo-600" : ""}>4. 遊戲</span>
-                        </div>
-                    </header>
-
-                    <main className="max-w-4xl mx-auto p-4 md:p-8 flex-grow w-full text-slate-800">
-                        {step === 1 && (
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-8 animate-fade-in">
-                                <h2 className="text-2xl font-black mb-2">1. 基本設定</h2>
-                                <div className="grid md:grid-cols-2 gap-10">
-                                    <div className="space-y-4">
-                                        <label className="text-sm font-bold text-slate-500 uppercase">賓果盤尺寸</label>
-                                        <div className="flex gap-4">
-                                            {GRID_SIZES.map(size => (
-                                                <button key={size} onClick={() => setGridSize(size)} className={`flex-1 py-6 rounded-2xl border-2 transition-all ${gridSize === size ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md" : "border-slate-100 bg-white hover:border-slate-300"}`}>
-                                                    <div className="text-2xl font-black">{size}×{size}</div>
-                                                    <div className="text-xs opacity-60">{size*size} 格</div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <label className="text-sm font-bold text-slate-500 uppercase">選擇主題庫</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {Object.values(THEMES).map(t => (
-                                                <button key={t.id} onClick={() => setActiveTheme(t.id)} className={`flex items-center gap-2 p-4 rounded-xl border text-sm font-medium transition-all ${activeTheme === t.id ? "bg-indigo-600 text-white shadow-md" : "bg-white hover:bg-slate-50 text-slate-700"}`}>
-                                                    <SvgIcon name={t.icon} className="w-4 h-4" /> {t.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end pt-4">
-                                    <button onClick={() => setStep(2)} className="w-full sm:w-auto bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all">下一步 <SvgIcon name="chevron-right" /></button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 2 && (
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-6 animate-fade-in">
-                                <div className="flex justify-between items-end border-b pb-6 text-slate-800">
-                                    <div className="w-full">
-                                        <h2 className="text-2xl font-black mb-2">2. 挑選內容</h2>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-slate-500 text-sm">已選: <span className="text-indigo-600 font-bold">{selectedItems.size}</span> (需至少 {gridSize*gridSize} 個項目)</p>
-                                            <div className="flex gap-2 text-slate-800">
-                                                <button onClick={() => setSelectedItems(new Set(currentLibrary.map(i => i.id)))} className="text-xs font-bold bg-slate-100 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">全選</button>
-                                                <button onClick={() => setSelectedItems(new Set())} className="text-xs font-bold bg-slate-100 px-4 py-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors">清空</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {activeTheme === 'chinese' && (
-                                    <div className="space-y-3 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                                        <label className="text-sm font-bold text-indigo-700 flex items-center gap-2"><SvgIcon name="edit-3" className="w-4 h-4" /> 自定義國字 (請直接輸入)</label>
-                                        <input type="text" value={customChineseInput} onChange={(e) => setCustomChineseInput(e.target.value)} placeholder="例如：春、福、喜、樂..." className="w-full p-4 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 outline-none transition-all" />
-                                    </div>
-                                )}
-
-                                {activeTheme === 'custom' && (
-                                    <div className="border-2 border-dashed border-indigo-200 bg-indigo-50/30 p-8 rounded-2xl text-center cursor-pointer hover:bg-indigo-50 transition-colors">
-                                        <input type="file" multiple accept="image/*" onChange={handleFileUpload} id="up" className="hidden" />
-                                        <label htmlFor="up" className="cursor-pointer flex flex-col items-center gap-3">
-                                            <SvgIcon name="upload" className="w-8 h-8 text-indigo-600" />
-                                            <p className="font-bold text-slate-700">上傳專屬圖片</p>
-                                        </label>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-7 gap-3 max-h-[45vh] overflow-y-auto p-4 bg-slate-100 rounded-2xl custom-scrollbar border border-slate-200">
-                                    {currentLibrary.map(item => (
-                                        <div key={item.id} onClick={() => toggleItem(item.id)} className={`relative aspect-square rounded-2xl cursor-pointer flex items-center justify-center border-4 transition-all ${selectedItems.has(item.id) ? "border-indigo-500 bg-white scale-95 shadow-md" : "border-white bg-white/60 hover:bg-white"}`}>
-                                            <div className="w-[85%] h-[85%] flex items-center justify-center overflow-hidden">
-                                                {item.type === 'text' ? (
-                                                    <span className="text-3xl font-black text-slate-800">{item.content}</span>
-                                                ) : (
-                                                    <img src={item.content} className="max-w-full max-h-full object-contain" />
-                                                )}
-                                            </div>
-                                            {selectedItems.has(item.id) && <div className="absolute -top-1 -right-1 bg-indigo-600 text-white rounded-full p-0.5 shadow-sm border border-white"><SvgIcon name="check-circle-2" className="w-4 h-4" /></div>}
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6">
-                                    <button onClick={() => setStep(1)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
-                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 上一步
-                                    </button>
-                                    <button onClick={() => setStep(3)} disabled={selectedItems.size < gridSize*gridSize} className={`w-full sm:w-auto px-10 py-4 rounded-2xl font-bold shadow-lg transition-all ${selectedItems.size < gridSize*gridSize ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>下一步</button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 3 && (
-                            <div className="bg-white rounded-3xl p-8 shadow-sm border space-y-8 animate-fade-in">
-                                <h2 className="text-2xl font-black mb-2">3. 輸出設定與份數</h2>
-                                <div className="grid md:grid-cols-2 gap-12 text-slate-700">
-                                    <div className="space-y-8">
-                                        <div className="space-y-4">
-                                            <label className="block text-sm font-bold text-slate-500 uppercase tracking-widest">要列印幾份？ (自動隨機洗牌)</label>
-                                            <input type="number" min="1" max="100" value={copies} onChange={(e) => setCopies(Math.max(1, parseInt(e.target.value) || 1))} className="w-full text-4xl font-black text-indigo-600 border-2 border-indigo-100 rounded-2xl p-5 focus:border-indigo-500 outline-none transition-all" />
-                                        </div>
-                                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-900 text-sm">
-                                            <p className="font-bold flex items-center gap-2 mb-1"><SvgIcon name="edit-3" className="w-4 h-4" /> 紙本作業提醒</p>
-                                            <p>生成的 PDF 將包含姓名、日期填寫欄，標題為「賓果遊戲卡」。</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <p className="mb-4 text-xs font-bold text-slate-400 uppercase tracking-widest">排版範本預覽</p>
-                                        <div className="w-64 aspect-[1/1.4] bg-white shadow-2xl rounded-sm border p-4 flex flex-col items-center justify-center gap-4">
-                                            <div className="w-full h-4 border-b border-slate-100"></div>
-                                            <div className={`grid grid-cols-${gridSize} gap-1 w-full aspect-square bg-slate-900 border-2 border-slate-900`}>
-                                                {previewNumbers.map((num, i) => (
-                                                    <div key={i} className="bg-white flex items-center justify-center text-xl font-black text-slate-800">{num}</div>
-                                                ))}
-                                            </div>
-                                            <div className="w-1/2 h-1 bg-slate-50"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                                                
-                                <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 pt-8">
-                                    <button onClick={() => setStep(2)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
-                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 上一步
-                                    </button>
-                                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                                        <button onClick={() => setStep(4)} className="w-full sm:w-auto bg-white border-2 border-indigo-600 text-indigo-600 px-8 py-4 rounded-2xl font-bold hover:bg-indigo-50 transition-all shadow-sm">開啟抽籤器</button>
-                                        <button onClick={generatePDF} disabled={isGenerating} className="w-full sm:w-auto bg-green-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-all disabled:bg-slate-300">
-                                            {isGenerating ? "處理中..." : <><SvgIcon name="download" className="w-5 h-5"/> 下載 PDF</>}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 4 && (
-                            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border space-y-6 animate-zoom-in">
-                                <div className="flex justify-between items-center border-b pb-4 text-slate-800">
-                                    <h2 className="text-xl md:text-2xl font-black flex items-center gap-3 text-indigo-600"><SvgIcon name="play-circle" /> 現場互動抽籤器</h2>
-                                    <button onClick={() => setShowResetModal(true)} className="text-slate-400 hover:text-red-500 flex items-center gap-2 font-bold text-sm transition-colors px-3 py-1 hover:bg-red-50 rounded-lg">
-                                        <SvgIcon name="rotate-ccw" className="w-4 h-4" /> 重置遊戲
-                                    </button>
-                                </div>
-
-                                <div className="grid lg:grid-cols-12 gap-8">
-                                    <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-900 rounded-[2.5rem] p-8 min-h-[400px] shadow-2xl relative border-b-4 border-indigo-600 overflow-hidden">
-                                        {currentDrawn ? (
-                                            <div className={`flex flex-col items-center gap-6 animate-zoom-in ${isRolling ? 'opacity-40' : 'opacity-100'}`}>
-                                                <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border-8 border-indigo-500 flex items-center justify-center w-64 h-64 md:w-80 md:h-80 overflow-hidden">
-                                                    {currentDrawn.type === 'text' ? (
-                                                        <div className="w-full h-full flex items-center justify-center transform translateY-[-15%]">
-                                                            <span className="text-[120px] md:text-[160px] font-black text-slate-900 leading-none">{currentDrawn.content}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <img src={currentDrawn.content} className="max-w-[95%] max-h-[95%] object-contain" />
-                                                    )}
-                                                </div>
-                                                {!isRolling && (
-                                                    <div className="text-white text-3xl font-black bg-indigo-600 px-10 py-3 rounded-full shadow-lg animate-bounce text-center">
-                                                        請圈選：{currentDrawn.type === 'text' ? currentDrawn.content : '這個圖案'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="text-slate-500 text-center">
-                                                <SvgIcon name="play-circle" className="w-20 h-20 mx-auto mb-4 opacity-20 text-white" />
-                                                <p className="text-white text-xl font-bold">準備好開始挑戰了嗎？</p>
-                                                <p className="text-slate-400 mt-1">點擊下方按鈕開始隨機抽籤</p>
-                                            </div>
-                                        )}
-                                        <button onClick={drawNext} disabled={isRolling} className={`mt-10 bg-white text-slate-900 w-full max-w-sm py-6 rounded-2xl text-2xl font-black shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:scale-105 transition-all ${isRolling ? 'opacity-50 cursor-wait' : 'hover:bg-indigo-50'}`}>
-                                            {isRolling ? '抽籤中...' : '抽下一球'}
-                                        </button>
-                                    </div>
-
-                                    <div className="lg:col-span-5 bg-slate-100 rounded-3xl p-4 md:p-6 border border-slate-200 flex flex-col max-h-[500px] md:max-h-[600px] shadow-inner">
-                                        <h3 className="font-black text-slate-600 text-sm uppercase mb-4 flex justify-between tracking-widest border-b border-slate-200 pb-2">已抽出紀錄 ({drawnItems.length})</h3>
-                                        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar">
-                                            {drawnItems.map((item, idx) => (
-                                                <div key={idx} className="bg-white rounded-3xl border-2 border-slate-200 flex items-center justify-center aspect-square relative shadow-lg z-0 hover:border-indigo-400 transition-all group animate-zoom-in">
-                                                    <span className="absolute top-2 left-2 text-[12px] bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-black z-20 shadow-sm opacity-80">
-                                                        {drawnItems.length - idx}
-                                                    </span>
-                                                                                                        
-                                                    <div className="w-full h-full flex items-center justify-center pointer-events-none z-10 overflow-hidden p-4">
-                                                        {item.type === 'text' ? (
-                                                            <span className="text-6xl md:text-7xl font-black text-slate-900 leading-none transform -translate-y-[10%] inline-block text-center">
-                                                                {item.content}
-                                                            </span>
-                                                        ) : (
-                                                            <img src={item.content} className="w-[90%] h-[90%] object-contain" />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {drawnItems.length === 0 && <div className="col-span-full py-32 text-center text-slate-400 text-sm font-bold italic">尚無抽出的球</div>}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="pt-2">
-                                    <button onClick={() => setStep(3)} className="w-full sm:w-auto px-8 py-4 font-bold border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-slate-600">
-                                        <SvgIcon name="chevron-left" className="w-4 h-4"/> 返回設定
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    <footer className="text-center py-8 text-slate-400 text-sm border-t bg-white">
-                        <a href="https://www.facebook.com/mpotkevin" target="_blank" rel="noopener noreferrer" className="text-slate-400 font-bold hover:text-indigo-600 transition-colors underline decoration-dotted underline-offset-4">
-                            設計：職能治療師 - 鄭凱文
-                        </a>
-                    </footer>
-
-                    {showResetModal && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl animate-zoom-in border border-slate-100">
-                                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <SvgIcon name="rotate-ccw" className="w-8 h-8" />
-                                </div>
-                                <h3 className="text-xl font-bold text-center mb-2 text-slate-800">確定要重新開始？</h3>
-                                <p className="text-slate-500 text-center text-sm mb-8">目前的抽籤紀錄將會被全部清除，此動作無法復原。</p>
-                                <div className="flex gap-3">
-                                    <button onClick={() => setShowResetModal(false)} className="flex-1 py-3 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">取消</button>
-                                    <button onClick={() => { setDrawnItems([]); setCurrentDrawn(null); setShowResetModal(false); }} className="flex-1 py-3 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-lg shadow-red-100 transition-colors">確定重置</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div id="print-container" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', display: 'none', background: 'white' }}>
-                        {Array.from({ length: copies }).map((_, i) => (
-                            <div key={i} id={`bingo-page-${i}`} style={{ width: '210mm', height: '297mm', background: 'white' }}></div>
-                        ))}
-                    </div>
-                </div>
-            );
+        html, body {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            overscroll-behavior: none;
+            overflow-x: hidden;
         }
 
-        // --- 修正 React 18 根節點渲染掛載 ---
-        const container = document.getElementById('root');
-        const root = window.ReactDOM.createRoot(container);
-        root.render(<App />);
+        /* Smooth shake keyframe for error feedback */
+        @keyframes error-shake {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            20% { transform: translate(-8px, 0) scale(1.05); }
+            40% { transform: translate(8px, 0) scale(1.05); }
+            60% { transform: translate(-5px, 0) scale(1.02); }
+            80% { transform: translate(5px, 0) scale(1.02); }
+        }
+
+        .animate-shake {
+            animation: error-shake 0.4s ease-in-out;
+            box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.4) !important;
+            border-color: #e11d48 !important;
+            background-color: #ffe4e6 !important;
+        }
+
+        /* Success flash animation */
+        @keyframes success-pop {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.9; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+
+        .animate-success {
+            animation: success-pop 0.35s ease-out forwards;
+            box-shadow: 0 0 0 8px rgba(22, 163, 74, 0.5) !important;
+            border-color: #16a34a !important;
+            background-color: #dcfce7 !important;
+        }
+
+        /* Dynamic circle styling */
+        .game-circle {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.12), 0 3px 5px -2px rgba(0, 0, 0, 0.05);
+            font-weight: 800;
+            border: 3px solid #ffffff;
+            touch-action: none;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: clip;
+        }
+
+        .game-circle:active {
+            transform: scale(0.92);
+        }
+
+        /* Custom scrollbar for clinical logs */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        /* Highlight style for level selection cards */
+        .level-card:has(input:checked) {
+            border-color: #2563eb !important;
+            background-color: #eff6ff !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15) !important;
+        }
+
+        /* Touch interaction lock container */
+        #game-container {
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        /* Active gameplay layout lock - limits scrolling only during game mode */
+        body.is-playing {
+            height: 100dvh;
+            max-height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.is-playing main {
+            flex: 1 1 0%;
+            min-height: 0;
+            padding: 0.5rem !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        body.is-playing #panel-game {
+            height: 100%;
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            margin: 0 auto;
+        }
+
+        body.is-playing #game-container {
+            flex: 1 1 0%;
+            min-height: 0;
+            width: 100%;
+        }
+
+        /* Responsive adaptation for landscape and short screens */
+        @media (orientation: landscape), (max-height: 550px) {
+            body.is-playing header {
+                padding-top: 0.25rem !important;
+                padding-bottom: 0.25rem !important;
+            }
+
+            body.is-playing header h1 {
+                font-size: 0.85rem !important;
+            }
+
+            #game-instruction {
+                padding: 0.35rem 0.6rem !important;
+                margin-bottom: 0.35rem !important;
+            }
+
+            #game-instruction #instruction-title {
+                font-size: 0.75rem !important;
+                line-height: 1.1 !important;
+            }
+
+            #game-instruction #instruction-desc {
+                display: none !important;
+            }
+
+            #target-hint {
+                font-size: 0.7rem !important;
+                padding: 0.15rem 0.4rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col font-sans overflow-x-hidden antialiased select-none">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm px-3 py-2 sm:px-4 sm:py-3 transition-all">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-2">
+            <!-- Brand / Title -->
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                <div class="bg-blue-600 text-white p-1.5 sm:p-2 rounded-xl shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-sm sm:text-lg md:text-xl font-bold text-slate-800 tracking-tight leading-tight">認知大挑戰</h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">專注與敏捷度訓練網頁遊戲</p>
+                </div>
+            </div>
+
+            <!-- Compact Game Status Bar -->
+            <div id="game-status-bar" class="hidden flex items-center gap-1.5 sm:gap-3">
+                <!-- Collapsible Details Group -->
+                <div id="statusbar-details" class="flex items-center gap-1.5 sm:gap-2 transition-all duration-200">
+                    <!-- Level -->
+                    <div class="bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200 flex items-center gap-1 text-xs font-bold text-blue-700 whitespace-nowrap">
+                        <span class="hidden sm:inline">🏷️</span>
+                        <span id="ui-current-level">Lv.1</span>
+                    </div>
+                    <!-- Progress -->
+                    <div class="bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1 text-xs font-bold text-slate-700 whitespace-nowrap">
+                        <span class="hidden sm:inline">📊</span>
+                        <span id="ui-round-progress">1/5</span>
+                    </div>
+                    <!-- Score -->
+                    <div class="bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1 text-xs font-bold text-emerald-700 whitespace-nowrap">
+                        <span>🏆</span>
+                        <span id="ui-score">0</span>
+                    </div>
+                    <!-- Timer -->
+                    <div id="ui-timer-box" class="bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1 text-xs font-bold text-amber-700 whitespace-nowrap">
+                        <span>⏱️</span>
+                        <span id="ui-timer">15s</span>
+                    </div>
+                </div>
+
+                <!-- Control Action Buttons -->
+                <div class="flex items-center gap-1">
+                    <!-- Toggle Status Bar Collapse Button -->
+                    <button id="btn-toggle-statusbar" class="p-1.5 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition" title="收合/展開狀態欄">
+                        <svg id="icon-statusbar-arrow" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                        </svg>
+                    </button>
+                    <!-- Pause Button -->
+                    <button id="btn-pause-game" class="p-1.5 sm:p-2 text-slate-600 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 rounded-lg transition" title="暫停遊戲">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </button>
+                    <!-- Sound Toggle -->
+                    <button id="btn-toggle-sound" class="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition" title="切換音效">
+                        <svg id="icon-sound-on" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        <svg id="icon-sound-off" class="w-4 h-4 sm:w-5 sm:h-5 hidden text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    </button>
+                    <!-- Leave / Settings button -->
+                    <button id="btn-quit-game" class="p-1.5 sm:p-2 text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 rounded-lg transition" title="結束並回到設定">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-2 sm:p-6 flex flex-col justify-center items-center relative min-h-0">
+
+        <!-- VIEW 1: SETTINGS PANEL -->
+        <section id="panel-settings" class="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transition-all duration-300">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-5 sm:p-6 text-white">
+                <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                    ⚙️ 訓練與遊戲參數設定
+                </h2>
+                <p class="text-blue-100 text-xs sm:text-sm mt-1">可針對兒童專注力、長輩腦力保健或個人反應力彈性調配參數。</p>
+            </div>
+
+            <div class="p-4 sm:p-6 space-y-5">
+                <!-- Level Selection -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">訓練關卡選擇</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        <label class="level-card relative flex flex-col p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition bg-slate-50">
+                            <input type="radio" name="setting-level" value="1" class="sr-only" checked>
+                            <span class="text-sm sm:text-base font-bold text-slate-800 flex items-center justify-between">
+                                1. 大小排序
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">視覺辨別</span>
+                            </span>
+                            <span class="text-xs text-slate-500 mt-1">純大小比較（無數字），訓練基本視覺辨別與從小到大空間順序。</span>
+                        </label>
+
+                        <label class="level-card relative flex flex-col p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition bg-slate-50">
+                            <input type="radio" name="setting-level" value="2" class="sr-only">
+                            <span class="text-sm sm:text-base font-bold text-slate-800 flex items-center justify-between">
+                                2. 數字排序 (無干擾)
+                                <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">數字搜尋</span>
+                            </span>
+                            <span class="text-xs text-slate-500 mt-1">圓形尺寸相同，純粹考驗數字從小到大的數值搜尋與排序能力。</span>
+                        </label>
+
+                        <label class="level-card relative flex flex-col p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition bg-slate-50">
+                            <input type="radio" name="setting-level" value="3" class="sr-only">
+                            <span class="text-sm sm:text-base font-bold text-slate-800 flex items-center justify-between">
+                                3. 視覺干擾挑戰 (Stroop 效應)
+                                <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">專注抑制</span>
+                            </span>
+                            <span class="text-xs text-slate-500 mt-1">數字與圓形大小隨機錯置干擾，訓練專注忽視圓圈大小、只依數字排序。</span>
+                        </label>
+
+                        <label class="level-card relative flex flex-col p-3.5 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition bg-slate-50">
+                            <input type="radio" name="setting-level" value="all" class="sr-only">
+                            <span class="text-sm sm:text-base font-bold text-slate-800 flex items-center justify-between">
+                                4. 連續通關模式 (1→2→3)
+                                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">完整挑戰</span>
+                            </span>
+                            <span class="text-xs text-slate-500 mt-1">依序進行所有關卡訓練，進行完整的腦力考驗。</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
+                    <!-- Circle Count N -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="setting-n-count" class="text-sm font-bold text-slate-700">圓形數量 (N)</label>
+                            <span id="label-n-count" class="text-sm font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md">5 個</span>
+                        </div>
+                        <input type="range" id="setting-n-count" min="3" max="10" value="5" step="1" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                            <span>3 (簡單)</span>
+                            <span>6 (中等)</span>
+                            <span>10 (困難)</span>
+                        </div>
+                    </div>
+
+                    <!-- Circle Color Style -->
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">圓圈顏色風格</label>
+                        <div class="flex items-center gap-6 mt-1">
+                            <label class="inline-flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                                <input type="radio" name="setting-color-mode" value="multi" checked class="w-4 h-4 text-blue-600 accent-blue-600">
+                                <span>🎨 繽紛多色</span>
+                            </label>
+                            <label class="inline-flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                                <input type="radio" name="setting-color-mode" value="single" class="w-4 h-4 text-blue-600 accent-blue-600">
+                                <span>🔵 相同顏色 (經典藍)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Total Questions -->
+                    <div>
+                        <label for="setting-total-rounds" class="block text-sm font-bold text-slate-700 mb-1">總題數</label>
+                        <select id="setting-total-rounds" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="3">3 題 (快速體驗)</option>
+                            <option value="5" selected>5 題 (標準訓練)</option>
+                            <option value="10">10 題 (深度測驗)</option>
+                            <option value="15">15 題 (強化訓練)</option>
+                        </select>
+                    </div>
+
+                    <!-- Number Range -->
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">數字產生範圍 (用於關卡 2 & 3)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="setting-min-num" value="1" min="0" max="99" 
+                                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <span class="text-slate-400 font-bold">~</span>
+                            <input type="number" id="setting-max-num" value="20" min="5" max="99" 
+                                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Timer Settings -->
+                    <div>
+                        <label for="setting-timer-seconds" class="block text-sm font-bold text-slate-700 mb-1">每題單題時間限制</label>
+                        <select id="setting-timer-seconds" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="0">無時間限制 (無壓力模式)</option>
+                            <option value="10">10 秒 (高壓快速反應)</option>
+                            <option value="15" selected>15 秒 (標準挑戰)</option>
+                            <option value="20">20 秒 (充裕試驗)</option>
+                            <option value="30">30 秒 (輕鬆試驗)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Assistance Toggle -->
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                        <span class="text-sm font-bold text-slate-700 block">輔助點擊標籤 (Assist Mode)</span>
+                        <span class="text-xs text-slate-500">點擊正確時顯示已點選順序號碼，降低挫折感</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-assist-mode" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Start Button -->
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end">
+                <button id="btn-start-game" class="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-blue-500/25 transition flex items-center justify-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    開始腦力訓練
+                </button>
+            </div>
+        </section>
+
+        <!-- PAUSE MODAL OVERLAY -->
+        <div id="modal-pause" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-4xl">⏸️</div>
+                <h3 class="text-xl font-bold text-slate-800">遊戲已暫停</h3>
+                <p class="text-sm text-slate-500">你可以休息一下，準備好後隨時繼續！</p>
+                <div class="space-y-2 pt-2">
+                    <button id="btn-resume-game" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow transition text-base">
+                        繼續遊戲
+                    </button>
+                    <button id="btn-quit-from-pause" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm">
+                        結束遊戲並回到設定
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: GAME BOARD VIEW -->
+        <section id="panel-game" class="w-full max-w-4xl flex-1 flex flex-col hidden my-auto">
+            <!-- Instructions Banner -->
+            <div id="game-instruction" class="bg-white/90 backdrop-blur rounded-2xl p-3 sm:p-4 mb-2 sm:mb-3 border border-slate-200 shadow-sm flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <span id="instruction-icon" class="text-xl sm:text-2xl">💡</span>
+                    <div>
+                        <h3 id="instruction-title" class="text-xs sm:text-base font-bold text-slate-800">請由「最小」到「最大」順序點選圓形</h3>
+                        <p id="instruction-desc" class="text-xs text-slate-500">無視數字，專注於圓形本身的視覺尺寸大小。</p>
+                    </div>
+                </div>
+                <div id="target-hint" class="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-blue-200 shrink-0">
+                    目標：<span id="hint-next-target" class="font-bold">最小者</span>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="game-container" class="relative w-full flex-1 min-h-[320px] sm:min-h-[460px] bg-white rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden">
+                <!-- Interactive elements injected here via JS -->
+            </div>
+        </section>
+
+        <!-- VIEW 3: SUMMARY & REPORT -->
+        <section id="panel-summary" class="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden hidden transition-all">
+            <div class="bg-emerald-600 p-5 sm:p-6 text-white text-center">
+                <div class="inline-flex p-2.5 bg-white/20 rounded-full mb-2">
+                    <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold">訓練完成！挑戰結果總結</h2>
+                <p class="text-emerald-100 text-xs sm:text-sm mt-1">恭喜完成挑戰，以下為本次的表現統計數據。</p>
+            </div>
+
+            <div class="p-4 sm:p-6 space-y-5">
+                <!-- Top Metrics Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div class="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200 text-center">
+                        <span class="text-xs text-slate-500 block font-medium">總耗時</span>
+                        <span id="res-total-time" class="text-xl sm:text-2xl font-extrabold text-slate-800">0.0s</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200 text-center">
+                        <span class="text-xs text-slate-500 block font-medium">整體正確率</span>
+                        <span id="res-accuracy" class="text-xl sm:text-2xl font-extrabold text-emerald-600">100%</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200 text-center">
+                        <span class="text-xs text-slate-500 block font-medium">總點擊錯誤</span>
+                        <span id="res-errors" class="text-xl sm:text-2xl font-extrabold text-rose-600">0 次</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200 text-center">
+                        <span class="text-xs text-slate-500 block font-medium">平均每題回應</span>
+                        <span id="res-avg-speed" class="text-xl sm:text-2xl font-extrabold text-blue-600">0.0s</span>
+                    </div>
+                </div>
+
+                <!-- Level Breakdown Table -->
+                <div>
+                    <h3 class="text-sm font-bold text-slate-700 mb-2">分關表現統計</h3>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="w-full text-sm text-left text-slate-600">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-100 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-3 py-2.5 sm:px-4 sm:py-3">訓練關卡</th>
+                                    <th class="px-3 py-2.5 sm:px-4 sm:py-3 text-center">完成題數</th>
+                                    <th class="px-3 py-2.5 sm:px-4 sm:py-3 text-center">錯誤次數</th>
+                                    <th class="px-3 py-2.5 sm:px-4 sm:py-3 text-center">平均反應時間</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-table-body">
+                                <!-- Dynamic rows inserted via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Evaluation Note -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 sm:p-4">
+                    <h4 class="text-sm font-bold text-blue-900 flex items-center gap-1.5 mb-1">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        表現評語
+                    </h4>
+                    <p id="clinical-evaluation-text" class="text-xs sm:text-sm text-blue-800 leading-relaxed">
+                        受測者在視覺感知與專注控制測驗中反應穩定，表現相當出色！
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="bg-slate-50 px-4 py-3.5 sm:px-6 sm:py-4 border-t border-slate-200 flex flex-wrap gap-2.5 justify-between items-center">
+                <button id="btn-copy-report" class="w-full sm:w-auto px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition text-xs sm:text-sm flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 012-2h2a2 2 0 012-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    複製訓練成績紀錄
+                </button>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button id="btn-restart-game" class="flex-1 sm:flex-initial px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow transition text-xs sm:text-sm">
+                        再次挑戰
+                    </button>
+                    <button id="btn-back-settings" class="flex-1 sm:flex-initial px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow transition text-xs sm:text-sm">
+                        返回設定
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full bg-white border-t border-slate-200 py-2 sm:py-3 text-center text-xs text-slate-600 mt-auto shrink-0">
+        設計：<a href="https://www.facebook.com/mpotkevin" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 hover:underline font-bold">職能治療師 - 鄭凱文</a>
+    </footer>
+
+    <!-- AUDIO & LOGIC ENGINE -->
+    <script>
+        /**
+         * Web Audio API Synthesizer for gentle clinical sound effects
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(659.25, now); 
+                osc.frequency.exponentialRampToValueAtTime(830.61, now + 0.12);
+
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(130, now + 0.25);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playRoundComplete() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const freqs = [523.25, 659.25, 783.99, 1046.50];
+                freqs.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const startTime = now + idx * 0.08;
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.15, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.3);
+                });
+            }
+        }
+
+        // Global Game Controller State & Instances
+        const sound = new SoundEngine();
+
+        const state = {
+            // Settings
+            levelMode: '1', // 1, 2, 3, or 'all'
+            circleCount: 5,
+            colorMode: 'multi', // 'multi' or 'single'
+            minNumber: 1,
+            maxNumber: 20,
+            timerLimit: 15, // seconds (0 = unlimited)
+            totalRounds: 5,
+            assistMode: true,
+
+            // Active Game State
+            currentLevel: 1,
+            currentRound: 1,
+            score: 0,
+            expectedIndex: 0,
+            circlesData: [],
+            totalErrors: 0,
+            startTime: 0,
+            roundStartTime: 0,
+            timerInterval: null,
+            timerRemaining: 0,
+            isPaused: false,
+            statusBarCollapsed: false,
+
+            // Metrics Tracking
+            statsPerLevel: {
+                1: { totalRounds: 0, errors: 0, totalTime: 0 },
+                2: { totalRounds: 0, errors: 0, totalTime: 0 },
+                3: { totalRounds: 0, errors: 0, totalTime: 0 }
+            }
+        };
+
+        // Calming High-Contrast Pastel Color Palette for circles
+        const CIRCLE_PALETTES = [
+            { bg: '#3b82f6', text: '#ffffff', border: '#1d4ed8' }, // Blue
+            { bg: '#10b981', text: '#ffffff', border: '#047857' }, // Emerald
+            { bg: '#f59e0b', text: '#ffffff', border: '#b45309' }, // Amber
+            { bg: '#8b5cf6', text: '#ffffff', border: '#6d28d9' }, // Purple
+            { bg: '#ec4899', text: '#ffffff', border: '#be185d' }, // Pink
+            { bg: '#14b8a6', text: '#ffffff', border: '#0f766e' }, // Teal
+            { bg: '#f97316', text: '#ffffff', border: '#c2410c' }, // Orange
+            { bg: '#6366f1', text: '#ffffff', border: '#4338ca' }, // Indigo
+            { bg: '#84cc16', text: '#ffffff', border: '#4d7c0f' }, // Lime
+            { bg: '#06b6d4', text: '#ffffff', border: '#0e7490' }  // Cyan
+        ];
+
+        const UNIFORM_COLOR = { bg: '#2563eb', text: '#ffffff', border: '#1d4ed8' }; // Classic Blue
+
+        /**
+         * Circle Placement & Generation Algorithm (Dynamic Viewport Responsive Scale)
+         */
+        function generateCirclesData(containerWidth, containerHeight) {
+            const N = state.circleCount;
+            const level = state.currentLevel;
+            const circles = [];
+
+            // Get minimum dimension of container
+            const minDimension = Math.min(containerWidth, containerHeight);
+
+            // Compute radius based on screen density and N count
+            const densityDivider = N <= 4 ? 5.2 : (N <= 7 ? 6.2 : 7.8);
+            let maxRadius = Math.max(14, Math.floor(minDimension / densityDivider));
+            let minRadius = Math.max(10, Math.floor(maxRadius * (level === 2 ? 1.0 : 0.55)));
+
+            let sizes = [];
+            let numbers = [];
+
+            if (level === 1) {
+                const step = N > 1 ? (maxRadius - minRadius) / (N - 1) : 0;
+                for (let i = 0; i < N; i++) {
+                    sizes.push(minRadius + i * step);
+                }
+            } else if (level === 2) {
+                for (let i = 0; i < N; i++) {
+                    sizes.push(maxRadius);
+                }
+                numbers = generateUniqueNumbers(N, state.minNumber, state.maxNumber);
+            } else if (level === 3) {
+                const step = N > 1 ? (maxRadius - minRadius) / (N - 1) : 0;
+                for (let i = 0; i < N; i++) {
+                    sizes.push(minRadius + i * step);
+                }
+                numbers = generateUniqueNumbers(N, state.minNumber, state.maxNumber);
+
+                shuffleArray(sizes);
+                shuffleArray(numbers);
+            }
+
+            const paletteCopy = [...CIRCLE_PALETTES];
+            shuffleArray(paletteCopy);
+
+            const padding = Math.max(2, Math.floor(minDimension * 0.02));
+
+            for (let i = 0; i < N; i++) {
+                let r = sizes[i];
+                const num = (level === 1) ? null : numbers[i];
+                let placed = false;
+                let attempts = 0;
+                let x = 0, y = 0;
+
+                while (!placed && attempts < 1000) {
+                    attempts++;
+                    const maxX = Math.max(1, containerWidth - 2 * (r + padding));
+                    const maxY = Math.max(1, containerHeight - 2 * (r + padding));
+
+                    x = padding + r + Math.random() * maxX;
+                    y = padding + r + Math.random() * maxY;
+
+                    let overlap = false;
+                    for (let j = 0; j < circles.length; j++) {
+                        const other = circles[j];
+                        const dx = x - other.x;
+                        const dy = y - other.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const minGap = 2;
+                        if (dist < r + other.radius + minGap) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+
+                    if (!overlap) {
+                        placed = true;
+                    }
+                }
+
+                if (!placed) {
+                    r = Math.max(8, r * 0.75);
+                    const maxX = Math.max(1, containerWidth - 2 * (r + padding));
+                    const maxY = Math.max(1, containerHeight - 2 * (r + padding));
+                    x = padding + r + Math.random() * maxX;
+                    y = padding + r + Math.random() * maxY;
+                }
+
+                const selectedColor = (state.colorMode === 'single') ? UNIFORM_COLOR : paletteCopy[i % paletteCopy.length];
+
+                circles.push({
+                    id: i,
+                    x: x,
+                    y: y,
+                    radius: r,
+                    number: num,
+                    color: selectedColor,
+                    clicked: false
+                });
+            }
+
+            computeCorrectOrderIndices(circles, level);
+
+            return circles;
+        }
+
+        function generateUniqueNumbers(count, min, max) {
+            if (max - min + 1 < count) {
+                max = min + count + 5;
+            }
+            const set = new Set();
+            while (set.size < count) {
+                const rand = Math.floor(Math.random() * (max - min + 1)) + min;
+                set.add(rand);
+            }
+            return Array.from(set);
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        function computeCorrectOrderIndices(circles, level) {
+            if (level === 1) {
+                const sorted = [...circles].sort((a, b) => a.radius - b.radius);
+                sorted.forEach((item, index) => {
+                    item.targetOrder = index;
+                });
+            } else {
+                const sorted = [...circles].sort((a, b) => a.number - b.number);
+                sorted.forEach((item, index) => {
+                    item.targetOrder = index;
+                });
+            }
+        }
+
+        function renderGameCanvas() {
+            const container = document.getElementById('game-container');
+            container.innerHTML = '';
+
+            const rect = container.getBoundingClientRect();
+            const width = rect.width || 600;
+            const height = rect.height || 380;
+
+            state.circlesData = generateCirclesData(width, height);
+            state.expectedIndex = 0;
+
+            updateInstructionsUI();
+
+            state.circlesData.forEach((data) => {
+                const el = document.createElement('div');
+                el.className = 'game-circle select-none';
+                el.id = `circle-${data.id}`;
+
+                const diameter = data.radius * 2;
+                el.style.width = `${diameter}px`;
+                el.style.height = `${diameter}px`;
+                el.style.left = `${data.x - data.radius}px`;
+                el.style.top = `${data.y - data.radius}px`;
+                el.style.backgroundColor = data.color.bg;
+                el.style.borderColor = data.color.border;
+                el.style.color = data.color.text;
+
+                const fontSize = Math.max(12, Math.floor(diameter * 0.45));
+                el.style.fontSize = `${fontSize}px`;
+
+                if (state.currentLevel > 1 && data.number !== null) {
+                    el.innerText = data.number;
+                }
+
+                el.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!state.isPaused) {
+                        handleCircleClick(data, el);
+                    }
+                });
+
+                container.appendChild(el);
+            });
+        }
+
+        function updateInstructionsUI() {
+            const titleEl = document.getElementById('instruction-title');
+            const descEl = document.getElementById('instruction-desc');
+            const levelEl = document.getElementById('ui-current-level');
+            const hintEl = document.getElementById('hint-next-target');
+
+            levelEl.innerText = `Lv.${state.currentLevel}`;
+
+            if (state.currentLevel === 1) {
+                titleEl.innerText = "第一關：依圓形「從小到大」順序點選";
+                descEl.innerText = "請無視位置，專注比較圓形的大小邊界，由最細小的圓形開始點擊。";
+                hintEl.innerText = "最小圓圈";
+            } else if (state.currentLevel === 2) {
+                titleEl.innerText = "第二關：依「數字從小到大」順序點選";
+                descEl.innerText = "圓形尺寸均等，請專注於搜尋數字的數值大小。";
+                hintEl.innerText = "最小數字";
+            } else if (state.currentLevel === 3) {
+                titleEl.innerText = "第三關：無視圓形大小！依「數字從小到大」點選";
+                descEl.innerText = "⚠️ 干擾提示：圓形大小與數字為隨機組合，請不受圓形大小影響，專注比較數字！";
+                hintEl.innerText = "最小數字";
+            }
+
+            document.getElementById('ui-round-progress').innerText = `${state.currentRound}/${state.totalRounds}`;
+            document.getElementById('ui-score').innerText = state.score;
+        }
+
+        function handleCircleClick(data, element) {
+            if (data.clicked) return;
+
+            if (data.targetOrder === state.expectedIndex) {
+                data.clicked = true;
+                sound.playCorrect();
+
+                element.classList.add('animate-success');
+
+                if (state.assistMode) {
+                    element.innerText = `✓${state.expectedIndex + 1}`;
+                    element.style.fontSize = '12px';
+                }
+
+                state.score += 10;
+                document.getElementById('ui-score').innerText = state.score;
+
+                state.expectedIndex++;
+
+                if (state.expectedIndex >= state.circleCount) {
+                    onRoundCompleted();
+                }
+            } else {
+                sound.playError();
+                state.totalErrors++;
+                state.statsPerLevel[state.currentLevel].errors++;
+
+                element.classList.remove('animate-shake');
+                void element.offsetWidth;
+                element.classList.add('animate-shake');
+
+                setTimeout(() => {
+                    element.classList.remove('animate-shake');
+                }, 400);
+            }
+        }
+
+        function onRoundCompleted() {
+            sound.playRoundComplete();
+            stopTimer();
+
+            const roundDuration = (Date.now() - state.roundStartTime) / 1000;
+            state.statsPerLevel[state.currentLevel].totalTime += roundDuration;
+            state.statsPerLevel[state.currentLevel].totalRounds++;
+
+            setTimeout(() => {
+                if (state.currentRound < state.totalRounds) {
+                    state.currentRound++;
+                    startRound();
+                } else {
+                    if (state.levelMode === 'all' && state.currentLevel < 3) {
+                        state.currentLevel++;
+                        state.currentRound = 1;
+                        alertModal(`🎉 恭喜通過第 ${state.currentLevel - 1} 關！即將進入「第 ${state.currentLevel} 關」！`, () => {
+                            startRound();
+                        });
+                    } else {
+                        finishGame();
+                    }
+                }
+            }, 500);
+        }
+
+        function startTimer() {
+            stopTimer();
+            if (state.timerLimit <= 0) {
+                document.getElementById('ui-timer-box').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('ui-timer-box').classList.remove('hidden');
+            if (!state.isPaused) {
+                state.timerRemaining = state.timerLimit;
+            }
+            document.getElementById('ui-timer').innerText = `${state.timerRemaining}s`;
+
+            state.timerInterval = setInterval(() => {
+                if (state.isPaused) return;
+
+                state.timerRemaining--;
+                document.getElementById('ui-timer').innerText = `${state.timerRemaining}s`;
+
+                if (state.timerRemaining <= 3) {
+                    document.getElementById('ui-timer').classList.add('text-rose-600', 'animate-pulse');
+                } else {
+                    document.getElementById('ui-timer').classList.remove('text-rose-600', 'animate-pulse');
+                }
+
+                if (state.timerRemaining <= 0) {
+                    stopTimer();
+                    sound.playError();
+                    state.totalErrors += 2;
+                    state.statsPerLevel[state.currentLevel].errors += 2;
+                    setTimeout(() => {
+                        if (state.currentRound < state.totalRounds) {
+                            state.currentRound++;
+                            startRound();
+                        } else {
+                            finishGame();
+                        }
+                    }, 400);
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+                state.timerInterval = null;
+            }
+        }
+
+        function pauseGame() {
+            if (state.isPaused) return;
+            state.isPaused = true;
+            stopTimer();
+            document.getElementById('modal-pause').classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            if (!state.isPaused) return;
+            state.isPaused = false;
+            document.getElementById('modal-pause').classList.add('hidden');
+            startTimer();
+        }
+
+        function quitGameToSettings() {
+            stopTimer();
+            state.isPaused = false;
+            document.body.classList.remove('is-playing');
+            document.getElementById('modal-pause').classList.add('hidden');
+            document.getElementById('panel-game').classList.add('hidden');
+            document.getElementById('game-status-bar').classList.add('hidden');
+            document.getElementById('panel-settings').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const levelRadio = document.querySelector('input[name="setting-level"]:checked');
+            const levelVal = levelRadio ? levelRadio.value : '1';
+
+            const colorRadio = document.querySelector('input[name="setting-color-mode"]:checked');
+            state.colorMode = colorRadio ? colorRadio.value : 'multi';
+
+            state.levelMode = levelVal;
+            state.currentLevel = (levelVal === 'all') ? 1 : parseInt(levelVal);
+            state.circleCount = parseInt(document.getElementById('setting-n-count').value);
+            state.totalRounds = parseInt(document.getElementById('setting-total-rounds').value);
+            state.minNumber = parseInt(document.getElementById('setting-min-num').value);
+            state.maxNumber = parseInt(document.getElementById('setting-max-num').value);
+            state.timerLimit = parseInt(document.getElementById('setting-timer-seconds').value);
+            state.assistMode = document.getElementById('setting-assist-mode').checked;
+
+            state.currentRound = 1;
+            state.score = 0;
+            state.totalErrors = 0;
+            state.startTime = Date.now();
+            state.isPaused = false;
+            state.statsPerLevel = {
+                1: { totalRounds: 0, errors: 0, totalTime: 0 },
+                2: { totalRounds: 0, errors: 0, totalTime: 0 },
+                3: { totalRounds: 0, errors: 0, totalTime: 0 }
+            };
+
+            document.body.classList.add('is-playing');
+            document.getElementById('panel-settings').classList.add('hidden');
+            document.getElementById('panel-summary').classList.add('hidden');
+            document.getElementById('panel-game').classList.remove('hidden');
+            document.getElementById('game-status-bar').classList.remove('hidden');
+
+            startRound();
+        }
+
+        function startRound() {
+            state.roundStartTime = Date.now();
+            renderGameCanvas();
+            startTimer();
+        }
+
+        function finishGame() {
+            stopTimer();
+            document.body.classList.remove('is-playing');
+
+            const totalDurationSec = ((Date.now() - state.startTime) / 1000).toFixed(1);
+            const totalAttempts = state.score / 10 + state.totalErrors;
+            const accuracy = totalAttempts > 0 ? Math.round((state.score / 10 / totalAttempts) * 100) : 100;
+
+            let totalQuestionsCompleted = 0;
+            Object.keys(state.statsPerLevel).forEach(lvl => {
+                totalQuestionsCompleted += state.statsPerLevel[lvl].totalRounds;
+            });
+            const avgSpeed = totalQuestionsCompleted > 0 ? (totalDurationSec / totalQuestionsCompleted).toFixed(1) : "0.0";
+
+            document.getElementById('res-total-time').innerText = `${totalDurationSec}s`;
+            document.getElementById('res-accuracy').innerText = `${accuracy}%`;
+            document.getElementById('res-errors').innerText = `${state.totalErrors} 次`;
+            document.getElementById('res-avg-speed').innerText = `${avgSpeed}s`;
+
+            const tbody = document.getElementById('summary-table-body');
+            tbody.innerHTML = '';
+
+            const levelNames = {
+                1: '第一關：大小排序 (視覺辨別)',
+                2: '第二關：數字排序 (無干擾)',
+                3: '第三關：視覺干擾挑戰 (Stroop 效應)'
+            };
+
+            Object.keys(state.statsPerLevel).forEach(lvl => {
+                const stat = state.statsPerLevel[lvl];
+                if (stat.totalRounds > 0) {
+                    const avgLvlTime = (stat.totalTime / stat.totalRounds).toFixed(1);
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-slate-100 hover:bg-slate-50';
+                    tr.innerHTML = `
+                        <td class="px-3 py-2.5 sm:px-4 sm:py-3 font-semibold text-slate-800 text-xs sm:text-sm">${levelNames[lvl]}</td>
+                        <td class="px-3 py-2.5 sm:px-4 sm:py-3 text-center text-xs sm:text-sm">${stat.totalRounds} 題</td>
+                        <td class="px-3 py-2.5 sm:px-4 sm:py-3 text-center text-rose-600 font-bold text-xs sm:text-sm">${stat.errors} 次</td>
+                        <td class="px-3 py-2.5 sm:px-4 sm:py-3 text-center text-blue-600 font-bold text-xs sm:text-sm">${avgLvlTime}s / 題</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+
+            const evalText = document.getElementById('clinical-evaluation-text');
+            if (state.totalErrors === 0 && accuracy === 100) {
+                evalText.innerText = "🌟 太厲害了！專注度與反應力極佳，完美通過所有挑戰！";
+            } else if (state.statsPerLevel[3].errors > state.statsPerLevel[1].errors + state.statsPerLevel[2].errors) {
+                evalText.innerText = "💡 挑戰完成！在第三關（視覺干擾）遇到比較多挑戰，多練習可以持續提升視覺專注與選擇性注意力喔！";
+            } else {
+                evalText.innerText = "👍 表現相當平穩順暢！可以嘗試增加圓形數量 N 或縮短答題時間來挑戰更高的反應速度！";
+            }
+
+            document.getElementById('panel-game').classList.add('hidden');
+            document.getElementById('game-status-bar').classList.add('hidden');
+            document.getElementById('panel-summary').classList.remove('hidden');
+        }
+
+        function alertModal(msg, callback) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                    <div class="text-4xl">🎯</div>
+                    <p class="text-base font-bold text-slate-800 leading-snug">${msg}</p>
+                    <button id="modal-btn-ok" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow">
+                        繼續下一關
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            document.getElementById('modal-btn-ok').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                if (callback) callback();
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const sliderN = document.getElementById('setting-n-count');
+            const labelN = document.getElementById('label-n-count');
+            sliderN.addEventListener('input', (e) => {
+                labelN.innerText = `${e.target.value} 個`;
+            });
+
+            const btnToggleStatus = document.getElementById('btn-toggle-statusbar');
+            const statusDetails = document.getElementById('statusbar-details');
+            const arrowIcon = document.getElementById('icon-statusbar-arrow');
+
+            btnToggleStatus.addEventListener('click', () => {
+                state.statusBarCollapsed = !state.statusBarCollapsed;
+                if (state.statusBarCollapsed) {
+                    statusDetails.classList.add('hidden');
+                    arrowIcon.classList.add('rotate-180');
+                } else {
+                    statusDetails.classList.remove('hidden');
+                    arrowIcon.classList.remove('rotate-180');
+                }
+            });
+
+            const gamePanel = document.getElementById('panel-game');
+            ['touchstart', 'touchmove', 'wheel'].forEach(evtName => {
+                gamePanel.addEventListener(evtName, (e) => {
+                    if (!state.isPaused) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+            });
+
+            const levelRadios = document.querySelectorAll('input[name="setting-level"]');
+            function updateLevelCards() {
+                levelRadios.forEach(radio => {
+                    const card = radio.closest('.level-card');
+                    if (card) {
+                        if (radio.checked) {
+                            card.classList.add('border-blue-600', 'bg-blue-50', 'ring-2', 'ring-blue-500/20');
+                            card.classList.remove('border-slate-200', 'bg-slate-50');
+                        } else {
+                            card.classList.remove('border-blue-600', 'bg-blue-50', 'ring-2', 'ring-blue-500/20');
+                            card.classList.add('border-slate-200', 'bg-slate-50');
+                        }
+                    }
+                });
+            }
+            levelRadios.forEach(radio => {
+                radio.addEventListener('change', updateLevelCards);
+            });
+            updateLevelCards();
+
+            document.getElementById('btn-start-game').addEventListener('click', startGame);
+
+            let resizeTimer = null;
+            window.addEventListener('resize', () => {
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    if (!document.getElementById('panel-game').classList.contains('hidden')) {
+                        renderGameCanvas();
+                    }
+                }, 150);
+            });
+
+            document.getElementById('btn-pause-game').addEventListener('click', pauseGame);
+            document.getElementById('btn-resume-game').addEventListener('click', resumeGame);
+            document.getElementById('btn-quit-from-pause').addEventListener('click', quitGameToSettings);
+            document.getElementById('btn-quit-game').addEventListener('click', quitGameToSettings);
+
+            document.getElementById('btn-restart-game').addEventListener('click', startGame);
+            document.getElementById('btn-back-settings').addEventListener('click', () => {
+                document.getElementById('panel-summary').classList.add('hidden');
+                document.getElementById('panel-settings').classList.remove('hidden');
+            });
+
+            const soundBtn = document.getElementById('btn-toggle-sound');
+            const iconOn = document.getElementById('icon-sound-on');
+            const iconOff = document.getElementById('icon-sound-off');
+
+            soundBtn.addEventListener('click', () => {
+                sound.muted = !sound.muted;
+                if (sound.muted) {
+                    iconOn.classList.add('hidden');
+                    iconOff.classList.remove('hidden');
+                } else {
+                    iconOn.classList.remove('hidden');
+                    iconOff.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('btn-copy-report').addEventListener('click', () => {
+                const totalTime = document.getElementById('res-total-time').innerText;
+                const accuracy = document.getElementById('res-accuracy').innerText;
+                const errors = document.getElementById('res-errors').innerText;
+                const avgSpeed = document.getElementById('res-avg-speed').innerText;
+                const evalNote = document.getElementById('clinical-evaluation-text').innerText;
+
+                const textToCopy = `【腦力大挑戰 - 訓練成績紀錄】\n` +
+                    `日期: ${new Date().toLocaleDateString('zh-TW')} ${new Date().toLocaleTimeString('zh-TW')}\n` +
+                    `圓形數量(N): ${state.circleCount} | 總題數: ${state.totalRounds}\n` +
+                    `-----------------------------------\n` +
+                    `總耗時: ${totalTime}\n` +
+                    `整體正確率: ${accuracy}\n` +
+                    `點擊錯誤次數: ${errors}\n` +
+                    `平均回應速度: ${avgSpeed}\n` +
+                    `總結評語: ${evalNote}\n`;
+
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alertModal('📋 訓練數據紀錄已成功複製至剪貼簿！');
+                } catch (err) {
+                    console.error('複製失敗', err);
+                }
+                document.body.removeChild(textarea);
+            });
+        });
     </script>
 </body>
 </html>
